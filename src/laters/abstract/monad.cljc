@@ -60,7 +60,7 @@
             (tag m (assoc-lift* this m tmv)))})
 
 (defn lift-untag
-  "lifts a TaggedMV into Monad m, reeturing
+  "lifts a TaggedMV into Monad m, returning
    an untagged MV"
   [lifter m tmv]
   (cond
