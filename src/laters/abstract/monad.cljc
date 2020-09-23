@@ -41,7 +41,7 @@
   (-lift [_ m tmv])
   (-lift-untag [_ m tmv]))
 
-(defn assoc-lift*
+(defn ^:private assoc-lift*
   [lifters m tmv]
   (if (contains? lifters (-ctx tmv))
     ((get lifters (-ctx tmv)) (untag tmv))
