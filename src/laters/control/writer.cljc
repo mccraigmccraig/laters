@@ -7,11 +7,11 @@
   (-tell [m v])
   (-listen [m mv]))
 
-(deftype Writer []
+(deftype Writer [lifter]
   m/Monad
   (-bind [m wmv f]
-    (let [{val :val w :w} (m/untag wmv)
-          {val' :val w' :w} (m/untag (f val))]
+    (let [{val :val w :w} (m/lift-untag lifter m wmv)
+          {val' :val w' :w} (m/lift-untag lifter m (f val))]
       (m/tag
        m
        {:val val' :w (into w w')})))
@@ -31,7 +31,7 @@
   `[~'tell (fn [v#] (-tell ~m v#))
     ~'listen (fn [mv#] (-listen ~m mv#))])
 
-(def writer-ctx (Writer.))
+(def writer-ctx (Writer. nil))
 
 (comment
   (m/mlet m.writer/writer-ctx

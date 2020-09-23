@@ -10,16 +10,16 @@
 
 
 ;; ({:reader r :state st})->Promise<{:val v :writer w :state st}
-(deftype PRWS [lifters]
+(deftype PRWS [lifter]
   m/Monad
   (-bind [m wmv f]
     (m/tag
      m
      (fn [{r :reader st :state :as r-st}]
        (p/chain
-        ((m/untag (m/-lift m wmv)) r-st)
+        ((m/lift-untag lifter m wmv) r-st)
         (fn [{w :writer st' :state v :val :as b1}]
-          (p/all [w ((m/untag (m/-lift m (f v))) {:reader r :state st'})]))
+          (p/all [w ((m/lift-untag lifter m (f v)) {:reader r :state st'})]))
         (fn [[w {st'' :state w' :writer v' :val :as b2}]]
           (p/resolved
            {:writer ((fnil into []) w w')
@@ -31,8 +31,6 @@
      (fn [{r :reader st :state}]
        (p/resolved
         {:writer nil :state st :val v}))))
-  (-lift [m mv]
-    (m/lift m lifters mv))
   m/MonadZero
   (-mzero [m]
     (m/tag
@@ -84,7 +82,7 @@
     ~'get-state (fn [] (m.st/-get-state ~m))
     ~'put-state (fn [st'#] (m.st/-put-state ~m st'#))])
 
-(def prws-lifters
+(def prws-lifter
   {m.id/identity-ctx (fn [mv]
                        (fn [{r :reader w :writer st :state}]
                          (p/resolved
@@ -96,7 +94,7 @@
                          (fn [v]
                            {:writer nil :state st :val v}))))})
 
-(def prws-ctx (PRWS. prws-lifters))
+(def prws-ctx (PRWS. prws-lifter))
 
 (defn run-prws
   [wmv rws]

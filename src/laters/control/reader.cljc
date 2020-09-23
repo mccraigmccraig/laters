@@ -5,14 +5,14 @@
 (defprotocol MonadReader
   (-ask [m]))
 
-(deftype Reader []
+(deftype Reader [lifter]
   m/Monad
   (-bind [m wmv f]
     (m/tag
      m
      (fn [env]
-       (let [v ((m/untag wmv) env)]
-         ((m/untag (f v)) env)))))
+       (let [v ((m/lift-untag lifter m wmv) env)]
+         ((m/lift-untag lifter m (f v)) env)))))
   (-return [m v]
     (m/tag
      m
@@ -26,7 +26,7 @@
   [_ m]
   `[~'ask (-ask ~m)])
 
-(def reader-ctx (Reader.))
+(def reader-ctx (Reader. nil))
 (defn run-reader
   [wmv env]
   ((m/untag wmv) env))

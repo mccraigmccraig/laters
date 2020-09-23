@@ -6,14 +6,14 @@
   (-get-state [m])
   (-put-state [m st']))
 
-(deftype State []
+(deftype State [lifter]
   m/Monad
   (-bind [m wmv f]
     (m/tag
      m
      (fn [st]
-       (let [{val :val st' :state} ((m/untag wmv) st)]
-         ((m/untag (f val)) st')))))
+       (let [{val :val st' :state} ((m/lift-untag lifter m wmv) st)]
+         ((m/lift-untag lifter m (f val)) st')))))
   (-return [m v]
     (m/tag
      m
@@ -30,7 +30,8 @@
   `[~'get-state (fn [] (-get-state ~m))
     ~'put-state (fn [st'#] (-put-state ~m st'#))])
 
-(def state-ctx (State.))
+(def state-ctx (State. nil))
+
 (defn run-state
   [wmv state]
   ((m/untag wmv) state))

@@ -1,4 +1,6 @@
-(ns laters.abstract.monad)
+(ns laters.abstract.monad
+  (:import
+   [clojure.lang Associative]))
 
 ;; for contexts to wrap their monadic values in
 ;; a marker type - and support generic lifts
@@ -21,8 +23,7 @@
 
 (defprotocol Monad
   (-bind [m mv f])
-  (-return [m v])
-  (-lift [m wmv]))
+  (-return [m v]))
 
 (defmulti -lets
   (fn [ctx-classname ctx]
@@ -36,26 +37,50 @@
   [m mv f]
   (-bind m mv f))
 
-(defn lift
-  "a lifter is a fn which takes an TaggedMV mv and
-   lifts it into Monad m"
-  [m lifters wmv]
-  (cond
-    (= m (-ctx wmv))
-    wmv
+(defprotocol ILifter
+  (-lift [_ m tmv])
+  (-lift-untag [_ m tmv]))
 
-    (contains? lifters (-ctx wmv))
-    (tag
-     m
-     ((get lifters (-ctx wmv)) (untag wmv)))
+(defn assoc-lift*
+  [lifters m tmv]
+  (if (contains? lifters (-ctx tmv))
+    ((get lifters (-ctx tmv)) (untag tmv))
+
+    (throw
+     (ex-info
+      "map lifter: no lifter registered"
+      {:from (-ctx tmv)
+       :to m
+       :tmv tmv}))))
+
+(extend Associative
+  ILifter
+  {:-lift-untag assoc-lift*
+   :-lift (fn [this m tmv]
+            (tag m (assoc-lift* this m tmv)))})
+
+(defn lift-untag
+  "lifts a TaggedMV into Monad m, reeturing
+   an untagged MV"
+  [lifter m tmv]
+  (cond
+    (= m (-ctx tmv))
+    (untag tmv)
+
+    (some? lifter)
+    (-lift-untag lifter m tmv)
 
     :else
     (throw
      (ex-info
-      "no lifter registered"
-      {:from (-ctx wmv)
+      "no lifts"
+      {:from (-ctx tmv)
        :to m
-       :wmv wmv}))))
+       :tmv tmv}))))
+
+(defn lift
+  [lifter m tmv]
+  (tag m (lift-untag lifter m tmv)))
 
 (defprotocol MonadZero
   (-mzero [m]))

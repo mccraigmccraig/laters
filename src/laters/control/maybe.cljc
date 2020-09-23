@@ -3,29 +3,32 @@
    [laters.abstract.monad :as m]
    [laters.control.identity :as m.id]))
 
-(deftype Maybe [lifters]
+(deftype Maybe [lifter]
   m/Monad
   (-bind [m wmv f]
-    (let [mv (m/untag (m/-lift m wmv))]
+    (let [mv (m/lift-untag lifter m wmv)]
       (if (some? mv)
-        (f mv)
+        (m/lift lifter m (f mv))
         (m/tag m nil))))
   (-return [m v]
     (m/tag m v))
-  (-lift [m wmv]
-    (m/lift m lifters wmv))
   m/MonadZero
   (-mzero [m]
     (m/tag m nil)))
-
-(def maybe-lifters
-  {m.id/identity-ctx identity})
 
 (defmethod m/-lets (.getName Maybe)
   [_ m]
   `[~'nothing (fn [] (m/tag ~m nil))])
 
-(def maybe-ctx (Maybe. maybe-lifters))
+(def maybe-lifter
+  {m.id/identity-ctx identity})
+
+(def maybe-ctx (Maybe. maybe-lifter))
+
+(defmacro maybe-let
+  [& body]
+  `(m/mlet maybe-ctx
+     ~@body))
 
 
 (comment

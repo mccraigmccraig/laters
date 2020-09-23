@@ -2,17 +2,17 @@
   (:require
    [laters.abstract.monad :as m]))
 
-(deftype Identity []
+(deftype Identity [lifter]
   m/Monad
   (-bind [m mv f]
-    (f (m/untag mv)))
+    (m/lift
+     lifter
+     m
+     (f (m/lift-untag lifter m mv))))
   (-return [m v]
-    (m/tag m v))
-  (-lift [m wmv]
-    (m/lift nil m wmv)))
+    (m/tag m v)))
 
-(def identity-ctx (Identity.))
-
+(def identity-ctx (Identity. nil))
 
 (comment
   (m/mlet m.id/identity-ctx

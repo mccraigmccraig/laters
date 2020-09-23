@@ -7,16 +7,16 @@
    [laters.control.state :as m.st]))
 
 ;; reader+writer+state
-(deftype RWS [lifters]
+(deftype RWS [lifter]
   m/Monad
-  (-bind [m wmv f]
-    (let [wmv (m/-lift m wmv)]
+  (-bind [m tmv f]
+    (let [mv (m/lift-untag lifter m tmv)]
       (m/tag
        m
        (fn [{r :reader st :state :as rst}]
-         (let [{w :writer st' :state v :val} ((m/untag wmv) rst)
+         (let [{w :writer st' :state v :val} (mv rst)
                {st'' :state
-                w' :writer} ((m/untag (m/-lift m (f v))) {:reader r :state st'})]
+                w' :writer} ((m/lift-untag lifter m (f v)) {:reader r :state st'})]
            {:writer ((fnil into []) w w')
             :state st''})))))
   (-return [m v]
@@ -24,8 +24,6 @@
      m
      (fn [{r :reader w :writer st :state}]
        {:writer nil :state st :val v})))
-  (-lift [m wmv]
-    (m/lift m lifters wmv))
 
   m.r/MonadReader
   (-ask [m]
@@ -62,12 +60,12 @@
     ~'get-state (fn [] (m.st/-get-state ~m))
     ~'put-state (fn [st'#] (m.st/-put-state ~m st'#))])
 
-(def rws-lifters
+(def rws-lifter
   {m.id/identity-ctx (fn [mv]
                        (fn [{r :reader w :writer st :state}]
                          {:writer nil :state st :val mv}))})
 
-(def rws-ctx (RWS. rws-lifters))
+(def rws-ctx (RWS. rws-lifter))
 
 (defn run-rws
   [wmv rws]

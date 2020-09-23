@@ -8,16 +8,16 @@
    [promesa.core :as p]))
 
 ;; ({:reader r})->Promise<{:val v :writer w}
-(deftype PRW [lifters]
+(deftype PRW [lifter]
   m/Monad
   (-bind [m wmv f]
     (m/tag
      m
      (fn [{r :reader :as args}]
        (p/chain
-        ((m/untag (m/-lift m wmv)) args)
+        ((m/lift-untag lifter m wmv) args)
         (fn [{w :writer v :val}]
-          (p/all [w ((m/untag (m/-lift m (f v))) {:reader r})]))
+          (p/all [w ((m/lift-untag lifter m (f v)) {:reader r})]))
         (fn [[w {w' :writer v' :val}]]
           (p/resolved
            {:writer ((fnil into []) w w')
@@ -28,8 +28,6 @@
      (fn [{r :reader}]
        (p/resolved
         {:writer nil :val v}))))
-  (-lift [m mv]
-    (m/lift m lifters mv))
   m/MonadZero
   (-mzero [m]
     (m/tag
