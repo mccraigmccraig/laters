@@ -4,32 +4,33 @@
 
 (defprotocol MonadReader
   (-ask [m])
-  (-asks [m f])
   (-local [m f mv]))
 
 (deftype Reader [lifter]
   m/Monad
-  (-bind [m tmv f]
+  (-bind [m mv f]
     (m/tag
      m
-     (fn [env]
-       (let [v ((m/lift-untag lifter m tmv) env)]
-         ((m/lift-untag lifter m (f v)) env)))))
+     (fn [{env :monad/env :as arg}]
+       (let [{v :monad/val} ((m/lift-untag lifter m mv) arg)]
+         ((m/lift-untag lifter m (f v)) arg)))))
   (-return [m v]
-    (m/tag
-     m
-     (fn [env]
-       v)))
+    (m/tag m (fn [_] {:monad/val v})))
   MonadReader
   (-ask [m]
-    (m/tag m (fn [env] env)))
-  (-asks [m f]
-    (m/tag m (fn [env] (f env))))
+    (m/tag m (fn [{env :monad/env}] {:monad/val env})))
   (-local [m f mv]
     (m/tag
      m
-     (fn [env]
-       ((m/lift-untag lifter m mv) (f env))))))
+     (fn [{env :monad/env :as arg}]
+       ((m/lift-untag lifter m mv) (assoc arg :monad/env (f env)))))))
+
+(defn -asks
+  [m f]
+  (m/tag
+   m
+   (fn [{env :monad/env :as arg}]
+     ((m/untag (-ask m)) (assoc arg :monad/env (f env))))))
 
 (defmethod m/-lets (.getName Reader)
   [_ m]
@@ -51,14 +52,14 @@
      [a (ask)
       b (return 3)]
      (return (+ a b)))
-   10)
+   {:monad/env 10})
 
   (m/run-reader
    (m/mlet m.reader/reader-ctx
      [a (asks :foo)
       b (return 3)]
      (return (* a b)))
-   {:foo 10})
+   {:monad/env {:foo 10}})
 
   (m/run-reader
    (m/mlet m.reader/reader-ctx
@@ -69,5 +70,5 @@
            [b (asks :foo)]
            (return b)))]
      (return (* a b)))
-   {:foo 10})
+   {:monad/env {:foo 10}})
   )
