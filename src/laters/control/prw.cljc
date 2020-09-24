@@ -45,6 +45,17 @@
      (fn [{r :reader}]
        (p/resolved
         {:writer nil :val r}))))
+  (-asks [m f]
+    (m/tag
+     m
+     (fn [{r :reader}]
+       (p/resolved
+        {:writer nil :val (f r)}))))
+  (-local [m f mv]
+    (m/tag
+     m
+     (fn [{r :reader}]
+       ((m/lift-untag lifter m mv) {:reader (f r)}))))
 
   m.w/MonadWriter
   (-tell [m v]
@@ -58,6 +69,8 @@
 (defmethod m/-lets (.getName PRW)
   [_ m]
   `[~'ask (fn [] (m.r/-ask ~m))
+    ~'asks (fn [f#] (m.r/-asks ~m f#))
+    ~'local (fn [f# mv#] (m.r/-local ~m f# mv#))
     ~'tell (fn [v#] (m.w/-tell ~m v#))
     ~'listen (fn [mv#] (m.w/-listen ~m mv#))])
 
@@ -84,15 +97,23 @@
 
   @(m/run-prw
     (m/mlet m.prw/prw-ctx
-      [a (ask)
-       b (return 22)
+      [{a :foo} (ask)
+       b (asks :bar)
        c (return (+ a b))
        _ (tell c)
-       d (m/mlet m.pr/promise-ctx
+       d (local
+          #(assoc % :foo 20)
+          (m/mlet m.prw/prw-ctx
+            [{a :foo b :bar} (ask)]
+            (return (+ a b))))
+       e (m/mlet m.pr/promise-ctx
            [a (return 100)
             b (return 100)]
            (return (* a a)))]
-      (return (+ c d)))
-    {:reader 10})
+      (return [a b c d e]))
+    {:reader {:foo 10 :bar 20}})
+
+
+
 
   )

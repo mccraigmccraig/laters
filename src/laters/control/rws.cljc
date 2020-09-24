@@ -9,28 +9,39 @@
 ;; reader+writer+state
 (deftype RWS [lifter]
   m/Monad
-  (-bind [m tmv f]
-    (let [mv (m/lift-untag lifter m tmv)]
-      (m/tag
-       m
-       (fn [{r :reader st :state :as rst}]
-         (let [{w :writer st' :state v :val} (mv rst)
-               {st'' :state
-                w' :writer} ((m/lift-untag lifter m (f v)) {:reader r :state st'})]
-           {:writer ((fnil into []) w w')
-            :state st''})))))
+  (-bind [m mv f]
+    (m/tag
+     m
+     (fn [{r :reader st :state :as arg}]
+       (let [{w :writer st' :state v :val} ((m/lift-untag lifter m mv) arg)
+             {w' :writer
+              st'' :state
+              v' :val} ((m/lift-untag lifter m (f v)) {:reader r :state st'})]
+         {:writer ((fnil into []) w w')
+          :state st''
+          :val v'}))))
   (-return [m v]
     (m/tag
      m
-     (fn [{r :reader w :writer st :state}]
+     (fn [{r :reader st :state}]
        {:writer nil :state st :val v})))
 
   m.r/MonadReader
   (-ask [m]
     (m/tag
      m
-     (fn [{r :reader w :writer st :state}]
+     (fn [{r :reader st :state}]
        {:writer nil :state st :val r})))
+  (-asks [m f]
+    (m/tag
+     m
+     (fn [{r :reader st :state}]
+       {:writer nil :state st :val (f r)})))
+  (-local [m f mv]
+    (m/tag
+     m
+     (fn [{r :reader st :state}]
+       ((m/lift-untag lifter m mv) {:reader (f r) :state st}))))
 
   m.w/MonadWriter
   (-tell [m v]
@@ -55,6 +66,8 @@
 (defmethod m/-lets (.getName RWS)
   [_ m]
   `[~'ask (fn [] (m.r/-ask ~m))
+    ~'asks (fn [f#] (m.r/-asks ~m f#))
+    ~'local (fn [f# mv#] (m.r/-local ~m f# mv#))
     ~'tell (fn [v#] (m.w/-tell ~m v#))
     ~'listen (fn [mv#] (m.w/-listen ~m mv#))
     ~'get-state (fn [] (m.st/-get-state ~m))
@@ -79,10 +92,16 @@
      [a (return 5)
       _ (tell :foo)
       {b :bar} (ask)
+      c (asks :foo)
       st (get-state)
-      _ (put-state (assoc st :baz (+ a b)))]
-     (return (+ a b)))
-   {:reader {:bar 10}
+      _ (put-state (assoc st :baz (+ a b c)))
+      d (local
+         #(assoc % :bar 30)
+         (m/mlet m.rws/rws-ctx
+           [{a :foo b :bar} (ask)]
+           (return (+ a b))))]
+     (return [a b c d]))
+   {:reader {:foo 20 :bar 10}
     :state {:fip 12}})
 
   ;; auto-lifting
