@@ -9,81 +9,127 @@
    [promesa.core :as p]))
 
 
-;; ({:reader r :state st})->Promise<{:val v :writer w :state st}
+;; ({:monad.reader/env r :monad.state/state st})->Promise<{:monad/val v :monad.writer/output w :monad.state/state st}
 (deftype PRWS [lifter]
   m/Monad
   (-bind [m wmv f]
     (m/tag
      m
-     (fn [{r :reader st :state :as r-st}]
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
        (p/chain
-        ((m/lift-untag lifter m wmv) r-st)
-        (fn [{w :writer st' :state v :val :as b1}]
-          (p/all [w ((m/lift-untag lifter m (f v)) {:reader r :state st'})]))
-        (fn [[w {st'' :state w' :writer v' :val :as b2}]]
+        ((m/lift-untag lifter m wmv) {:monad.reader/env env
+                                      :monad.state/state st})
+        (fn [{w :monad.writer/output
+             st' :monad.state/state
+             v :monad/val}]
+          (p/all [w ((m/lift-untag lifter m (f v))
+                     {:monad.reader/env env
+                      :monad.state/state st'})]))
+        (fn [[w {w' :monad.writer/output
+                st'' :monad.state/state
+                v' :monad/val}]]
           (p/resolved
-           {:writer ((fnil into []) w w')
-            :state st''
-            :val v'}))))))
+           {:monad.writer/output ((fnil into []) w w')
+            :monad.state/state st''
+            :monad/val v'}))))))
   (-return [m v]
     (m/tag
      m
-     (fn [{r :reader st :state}]
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
        (p/resolved
-        {:writer nil :state st :val v}))))
+        {:monad.writer/output nil
+         :monad.state/state st
+         :monad/val v}))))
   m/MonadZero
   (-mzero [m]
     (m/tag
      m
-     (fn [{r :reader st :state}]
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
        (p/rejected
         (ex-info
          ":mopr.control.monad/mzero"
-         {:writer [::mzero]
-          :state st
-          :val nil})))))
+         {:monad.writer/output [::mzero]
+          :monad.state/state st
+          :monad/val nil})))))
 
   m.r/MonadReader
   (-ask [m]
     (m/tag
      m
-     (fn [{r :reader st :state}]
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
        (p/resolved
-        {:writer nil :state st :val r}))))
-  (-asks [m f]
-    (m/tag
-     m
-     (fn [{r :reader st :state}]
-       (p/resolved
-        {:writer nil :state st :val (f r)}))))
+        {:monad.writer/output nil
+         :monad.state/state st
+         :monad/val env}))))
   (-local [m f mv]
     (m/tag
      m
-     (fn [{r :reader st :state}]
-       ((m/lift-untag lifter m mv) {:reader (f r) :state st}))))
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
+       ((m/lift-untag lifter m mv) {:monad.reader/env (f env)
+                                    :monad.state/state st}))))
 
   m.w/MonadWriter
   (-tell [m v]
     (m/tag
      m
-     (fn [{r :reader st :state}]
+     (fn [{r :monad.reader/env st :monad.state/state}]
        (p/resolved
-        {:writer [v] :state st :val nil}))))
-  (-listen [m mv])
+        {:monad.writer/output [v] :monad.state/state st :monad/val nil}))))
+  (-listen [m mv]
+    (m/tag
+     m
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
+       (p/chain
+        ((m/lift-untag lifter m mv) {:monad.reader/env env
+                                     :monad.state/state st})
+        (fn [{w :monad.writer/output
+             st' :monad.state/state
+             v :monad/val
+             :as lv}]
+          {:monad.writer/output w
+           :monad.state/state st'
+           :monad/val lv})))))
+  (-pass [m mv]
+    (m/tag
+     m
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
+       (p/chain
+        ((m/lift-untag lifter m mv) {:monad.reader/env env
+                                     :monad.state/state st})
+        (fn [{w :monad.writer/output
+             st' :monad.state/state
+             pass-val :monad/val}]
+          (let [[val f] (m.w/-as-vec pass-val)]
+            {:monad.writer/output (f w)
+             :monad.state/state st'
+             :monad/val val}))))))
 
   m.st/MonadState
   (-get-state [m]
     (m/tag
      m
-     (fn [{r :reader st :state}]
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
        (p/resolved
-        {:writer nil :state st :val st}))))
+        {:monad.writer/output nil
+         :monad.state/state st
+         :monad/val st}))))
   (-put-state [m st']
     (m/tag
      m
-     (fn [{r :reader st :state}]
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
        (p/resolved
-        {:writer nil :state st' :val nil})))))
+        {:monad.writer/output nil
+         :monad.state/state st'
+         :monad/val nil})))))
 
 (defmethod m/-lets (.getName PRWS)
   [_ m]
@@ -92,20 +138,21 @@
     ~'local (fn [f# mv#] (m.r/-local ~m f# mv#))
     ~'tell (fn [v#] (m.w/-tell ~m v#))
     ~'listen (fn [mv#] (m.w/-listen ~m mv#))
+    ~'pass (fn [mv#] (m.w/-pass ~m mv#))
     ~'get-state (fn [] (m.st/-get-state ~m))
     ~'put-state (fn [st'#] (m.st/-put-state ~m st'#))])
 
 (def prws-lifter
   {m.id/identity-ctx (fn [mv]
-                       (fn [{r :reader w :writer st :state}]
+                       (fn [{r :monad.reader/env w :monad.writer/output st :monad.state/state}]
                          (p/resolved
-                          {:writer nil :state st :val mv})))
+                          {:monad.writer/output nil :monad.state/state st :monad/val mv})))
    m.pr/promise-ctx (fn [mv]
-                      (fn [{r :reader w :writer st :state}]
+                      (fn [{r :monad.reader/env w :monad.writer/output st :monad.state/state}]
                         (p/chain
                          mv
                          (fn [v]
-                           {:writer nil :state st :val v}))))})
+                           {:monad.writer/output nil :monad.state/state st :monad/val v}))))})
 
 (def prws-ctx (PRWS. prws-lifter))
 
@@ -133,6 +180,6 @@
             [{a :foo b :bar} (ask)]
             (return (+ a b))))]
       (return [a b c d e f]))
-    {:reader {:foo 10 :bar 20}
-     :state 50})
+    {:monad.reader/env {:foo 10 :bar 20}
+     :monad.state/state 50})
   )

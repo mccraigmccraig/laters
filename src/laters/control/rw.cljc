@@ -51,9 +51,12 @@
     (m/tag
      m
      (fn [{env :monad.reader/env}]
-       {:monad.writer/output nil
-        :monad/val ((m/lift-untag lifter m mv)
-                    {:monad.reader/env env})})))
+       (let [{w :monad.writer/output
+              v :monad/val
+              :as lv} ((m/lift-untag lifter m mv)
+                       {:monad.reader/env env})]
+         {:monad.writer/output w
+          :monad/val lv}))))
   (-pass [m mv]
     (m/tag
      m
