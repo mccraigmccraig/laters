@@ -71,8 +71,8 @@
        (p/chain
         ((m/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
-              v :monad/val
-              :as lv}]
+             v :monad/val
+             :as lv}]
           {:monad.writer/output w
            :monad/val lv})))))
   (-pass [m mv]
@@ -128,11 +128,24 @@
           (m/mlet m.prw/prw-ctx
             [{a :foo b :bar} (ask)]
             (return (+ a b))))
-       e (m/mlet m.pr/promise-ctx
+       {listen-out :monad.writer/output
+        e :monad/val} (listen
+                       (m/mlet m.prw/prw-ctx
+                         [_ (tell :foofoo)
+                          _ (tell :barbar)]
+                         (return :blah)))
+       _ (tell listen-out)
+       f (pass
+          (m/mlet m.prw/prw-ctx
+            [_ (tell :one)
+             _ (tell :two)
+             _ (tell :one)]
+            (return [:passed (fn [out] (filter #(= :one %) out))])))
+       g (m/mlet m.pr/promise-ctx
            [a (return 100)
             b (return 100)]
            (return (* a a)))]
-      (return [a b c d e]))
+      (return [a b c d e f g]))
     {:monad.reader/env {:foo 10 :bar 20}})
 
 
