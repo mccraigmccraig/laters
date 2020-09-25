@@ -11,19 +11,30 @@
   (-bind [m wmv f]
     (m/tag
      m
-     (fn [st]
-       (let [{val :val st' :state} ((m/lift-untag lifter m wmv) st)]
-         ((m/lift-untag lifter m (f val)) st')))))
+     (fn [{st :monad.state/state}]
+       (let [{st' :monad.state/state
+              val :monad/val} ((m/lift-untag lifter m wmv)
+                                   {:monad.state/state st})]
+         ((m/lift-untag lifter m (f val)) {:monad.state/state st'})))))
   (-return [m v]
     (m/tag
      m
-     (fn [st]
-       {:val v :state st})))
+     (fn [{st :monad.state/state}]
+       {:monad.state/state st
+        :monad/val v })))
   MonadState
   (-get-state [m]
-    (m/tag m (fn [st] {:val st :state st})))
+    (m/tag
+     m
+     (fn [{st :monad.state/state}]
+       {:monad.state/state st
+        :monad/val st})))
   (-put-state [m st']
-    (m/tag m (fn [st] {:val nil :state st'}))))
+    (m/tag
+     m
+     (fn [{st :monad.state/state}]
+       { :monad.state/state st'
+        :monad/val nil}))))
 
 (defmethod m/-lets (.getName State)
   [_ m]
@@ -44,4 +55,4 @@
       _ (put-state (assoc a :bar (* foo b)))
       c (get-state)]
      (return [a b c]))
-   {:foo 10}))
+   {:monad.state/state {:foo 10}}))

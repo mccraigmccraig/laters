@@ -12,56 +12,100 @@
   (-bind [m mv f]
     (m/tag
      m
-     (fn [{r :reader st :state :as arg}]
-       (let [{w :writer st' :state v :val} ((m/lift-untag lifter m mv) arg)
-             {w' :writer
-              st'' :state
-              v' :val} ((m/lift-untag lifter m (f v)) {:reader r :state st'})]
-         {:writer ((fnil into []) w w')
-          :state st''
-          :val v'}))))
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
+       (let [{w :monad.writer/output
+              st' :monad.state/state
+              v :monad/val} ((m/lift-untag lifter m mv)
+                             {:monad.reader/env env
+                              :monad.state/state st})
+
+             {w' :monad.writer/output
+              st'' :monad.state/state
+              v' :monad/val} ((m/lift-untag lifter m (f v))
+                              {:monad.reader/env env
+                               :monad.state/state st'})]
+
+         {:monad.writer/output ((fnil into []) w w')
+          :monad.state/state st''
+          :monad/val v'}))))
   (-return [m v]
     (m/tag
      m
-     (fn [{r :reader st :state}]
-       {:writer nil :state st :val v})))
+     (fn [{r :monad.reader/env
+          st :monad.state/state}]
+       {:monad.writer/output nil
+        :monad.state/state st
+        :monad/val v})))
 
   m.r/MonadReader
   (-ask [m]
     (m/tag
      m
-     (fn [{r :reader st :state}]
-       {:writer nil :state st :val r})))
-  (-asks [m f]
-    (m/tag
-     m
-     (fn [{r :reader st :state}]
-       {:writer nil :state st :val (f r)})))
+     (fn [{r :monad.reader/env st
+          :monad.state/state}]
+       {:monad.writer/output nil
+        :monad.state/state st
+        :monad/val r})))
   (-local [m f mv]
     (m/tag
      m
-     (fn [{r :reader st :state}]
-       ((m/lift-untag lifter m mv) {:reader (f r) :state st}))))
+     (fn [{r :monad.reader/env
+          st :monad.state/state}]
+       ((m/lift-untag lifter m mv)
+        {:monad.reader/env (f r)
+         :monad.state/state st}))))
 
   m.w/MonadWriter
   (-tell [m v]
     (m/tag
      m
-     (fn [{r :reader w :writer st :state}]
-       {:writer [v] :state st :val nil})))
-  (-listen [m mv])
+     (fn [{r :monad.reader/env
+          st :monad.state/state}]
+       {:monad.writer/output [v]
+        :monad.state/state st
+        :monad/val nil})))
+  (-listen [m mv]
+    (m/tag
+     m
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
+       {:monad.writer/output nil
+        :monad.state/state st
+        :monad/val ((m/lift-untag lifter m mv)
+                    {:monad.reader/env env})})))
+  (-pass [m mv]
+    (m/tag
+     m
+     (fn [{env :monad.reader/env
+          st :monad.state/state}]
+       (let [{w :monad.writer/output
+              st' :monad.state/state
+              pass-val :monad/val} ((m/lift-untag lifter m mv)
+                                    {:monad.reader/env env
+                                     :monad.state/state st})
+             [val f] (m.w/-as-vec pass-val)]
+         {:monad.writer/output (f w)
+          :monad.state/state st'
+          :monad/val val}))))
 
   m.st/MonadState
   (-get-state [m]
     (m/tag
      m
-     (fn [{r :reader w :writer st :state}]
-       {:writer nil :state st :val st})))
+     (fn [{r :monad.reader/env
+          st :monad.state/state}]
+       {:monad.writer/output nil
+        :monad.state/state st
+        :monad/val st})))
   (-put-state [m st']
     (m/tag
      m
-     (fn [{r :reader w :writer st :state}]
-       {:writer nil :state st' :val nil}))))
+     (fn [{r :monad.reader/env
+          st :monad.state/state}]
+       {:monad.writer/output nil
+        :monad.state/state st'
+        :monad/val nil}))))
 
 (defmethod m/-lets (.getName RWS)
   [_ m]
@@ -75,8 +119,8 @@
 
 (def rws-lifter
   {m.id/identity-ctx (fn [mv]
-                       (fn [{r :reader w :writer st :state}]
-                         {:writer nil :state st :val mv}))})
+                       (fn [{r :monad.reader/env w :monad.writer/output st :monad.state/state}]
+                         {:monad.writer/output nil :monad.state/state st :monad/val mv}))})
 
 (def rws-ctx (RWS. rws-lifter))
 
@@ -99,10 +143,11 @@
          #(assoc % :bar 30)
          (m/mlet m.rws/rws-ctx
            [{a :foo b :bar} (ask)]
-           (return (+ a b))))]
+           (return (+ a b))))
+      _ (tell d)]
      (return [a b c d]))
-   {:reader {:foo 20 :bar 10}
-    :state {:fip 12}})
+   {:monad.reader/env {:foo 20 :bar 10}
+    :monad.state/state {:fip 12}})
 
   ;; auto-lifting
   (m/run-rws
@@ -114,5 +159,5 @@
       _ (tell st)
       _ (put-state (assoc st :baz (+ a b)))]
      (return (+ a b)))
-   {:reader {:bar 10}
-    :state {:fip 12}}))
+   {:monad.reader/env {:bar 10}
+    :monad.state/state {:fip 12}}))

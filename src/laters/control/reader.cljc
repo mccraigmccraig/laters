@@ -11,26 +11,32 @@
   (-bind [m mv f]
     (m/tag
      m
-     (fn [{env :monad/env :as arg}]
-       (let [{v :monad/val} ((m/lift-untag lifter m mv) arg)]
-         ((m/lift-untag lifter m (f v)) arg)))))
+     (fn [{env :monad.reader/env}]
+       (let [{v :monad/val} ((m/lift-untag lifter m mv)
+                             {:monad.reader/env env})]
+         ((m/lift-untag lifter m (f v))
+          {:monad.reader/env env})))))
   (-return [m v]
     (m/tag m (fn [_] {:monad/val v})))
   MonadReader
   (-ask [m]
-    (m/tag m (fn [{env :monad/env}] {:monad/val env})))
+    (m/tag m (fn [{env :monad.reader/env}] {:monad/val env})))
   (-local [m f mv]
     (m/tag
      m
-     (fn [{env :monad/env :as arg}]
-       ((m/lift-untag lifter m mv) (assoc arg :monad/env (f env)))))))
+     (fn [{env :monad.reader/env}]
+       ((m/lift-untag lifter m mv) {:monad.reader/env (f env)})))))
 
 (defn -asks
   [m f]
   (m/tag
    m
-   (fn [{env :monad/env :as arg}]
-     ((m/untag (-ask m)) (assoc arg :monad/env (f env))))))
+   (fn [{env :monad.reader/env :as arg}]
+     ;; note this assocs the modified :monad.reader/env to
+     ;; the arg map, rather than constructing a new arg map,
+     ;; so will work with e.g. RWS monad too
+     ;; which will pass :monad.state/state in arg
+     ((m/untag (-ask m)) (assoc arg :monad.reader/env (f env))))))
 
 (defmethod m/-lets (.getName Reader)
   [_ m]
@@ -52,14 +58,14 @@
      [a (ask)
       b (return 3)]
      (return (+ a b)))
-   {:monad/env 10})
+   {:monad.reader/env 10})
 
   (m/run-reader
    (m/mlet m.reader/reader-ctx
      [a (asks :foo)
       b (return 3)]
      (return (* a b)))
-   {:monad/env {:foo 10}})
+   {:monad.reader/env {:foo 10}})
 
   (m/run-reader
    (m/mlet m.reader/reader-ctx
@@ -70,5 +76,5 @@
            [b (asks :foo)]
            (return b)))]
      (return (* a b)))
-   {:monad/env {:foo 10}})
+   {:monad.reader/env {:foo 10}})
   )
