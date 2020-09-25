@@ -65,11 +65,17 @@
          {:monad.writer/output (f w)
           :monad/val val})))))
 
-(defmethod m/-lets (.getName Writer)
-  [_ m]
-  `[~'tell (fn [v#] (-tell ~m v#))
-    ~'listen (fn [mv#] (-listen ~m mv#))
-    ~'pass (fn [mv#] (-pass ~m mv#))])
+(defmacro tell
+  [v]
+  `(-tell ~'this-monad## ~v))
+
+(defmacro listen
+  [mv]
+  `(-listen ~'this-monad## ~mv))
+
+(defmacro pass
+  [mv]
+  `(-pass ~'this-monad## ~mv))
 
 (def writer-ctx (Writer. nil))
 
@@ -80,32 +86,32 @@
 (comment
   (m.writer/run-writer
    (m/mlet m.writer/writer-ctx
-     [_ (tell :foo)
-      _ (tell :bar)]
-     (return 100)))
+     [_ (m.writer/tell :foo)
+      _ (m.writer/tell :bar)]
+     (m/return 100)))
 
   (m.writer/run-writer
    (m/mlet m.writer/writer-ctx
-     [_ (tell :foo)
-      a (return 1)
-      b (return 2)
-      _ (tell (+ a b))]
-     (return [a b])))
+     [_ (m.writer/tell :foo)
+      a (m/return 1)
+      b (m/return 2)
+      _ (m.writer/tell (+ a b))]
+     (m/return [a b])))
 
   (m.writer/run-writer
    (m/mlet m.writer/writer-ctx
      [v (listen (m/mlet m.writer/writer-ctx
-                  [_ (tell :foo)
-                   _ (tell :bar)]
-                  (return 3)))]
-     (return v)))
+                  [_ (m.writer/tell :foo)
+                   _ (m.writer/tell :bar)]
+                  (m/return 3)))]
+     (m/return v)))
 
   (m.writer/run-writer
    (m/mlet m.writer/writer-ctx
-     [v (pass (m/mlet m.writer/writer-ctx
-                [_ (tell :foo)
-                 _ (tell :bar)
-                 _ (tell :foo)]
-                (return [3 #(filterv (fn [v] (= v :foo)) %)])))]
-     (return v)))
+     [v (m.writer/pass (m/mlet m.writer/writer-ctx
+                         [_ (m.writer/tell :foo)
+                          _ (m.writer/tell :bar)
+                          _ (m.writer/tell :foo)]
+                         (m/return [3 #(filterv (fn [v] (= v :foo)) %)])))]
+     (m/return v)))
 )

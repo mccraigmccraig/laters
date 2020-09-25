@@ -27,6 +27,14 @@
      (fn [{env :monad.reader/env}]
        ((m/lift-untag lifter m mv) {:monad.reader/env (f env)})))))
 
+(defmacro ask
+  []
+  `(-ask ~'this-monad##))
+
+(defmacro local
+  [f mv]
+  `(-local ~'this-monad## ~f ~mv))
+
 (defn -asks
   [m f]
   (m/tag
@@ -38,11 +46,9 @@
      ;; which will pass :monad.state/state in arg
      ((m/untag (-ask m)) (assoc arg :monad.reader/env (f env))))))
 
-(defmethod m/-lets (.getName Reader)
-  [_ m]
-  `[~'ask (fn [] (-ask ~m))
-    ~'asks (fn [f#] (-asks ~m f#))
-    ~'local (fn [f# mv#] (-local ~m f# mv#))])
+(defmacro asks
+  [f]
+  `(-asks ~'this-monad## ~f))
 
 (def reader-ctx (Reader. nil))
 (defn run-reader
@@ -55,26 +61,26 @@
 
   (m/run-reader
    (m/mlet m.reader/reader-ctx
-     [a (ask)
-      b (return 3)]
-     (return (+ a b)))
+     [a (m.reader/ask)
+      b (m/return 3)]
+     (m/return (+ a b)))
    {:monad.reader/env 10})
 
   (m/run-reader
    (m/mlet m.reader/reader-ctx
-     [a (asks :foo)
-      b (return 3)]
-     (return (* a b)))
+     [a (m.reader/asks :foo)
+      b (m/return 3)]
+     (m/return (* a b)))
    {:monad.reader/env {:foo 10}})
 
   (m/run-reader
    (m/mlet m.reader/reader-ctx
-     [a (asks :foo)
-      b (local
+     [a (m.reader/asks :foo)
+      b (m.reader/local
          #(assoc % :foo 20)
          (m/mlet m.reader/reader-ctx
            [b (asks :foo)]
-           (return b)))]
-     (return (* a b)))
+           (m/return b)))]
+     (m/return (* a b)))
    {:monad.reader/env {:foo 10}})
   )

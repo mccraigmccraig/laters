@@ -36,10 +36,13 @@
        { :monad.state/state st'
         :monad/val nil}))))
 
-(defmethod m/-lets (.getName State)
-  [_ m]
-  `[~'get-state (fn [] (-get-state ~m))
-    ~'put-state (fn [st'#] (-put-state ~m st'#))])
+(defmacro get-state
+  []
+  `(-get-state ~'this-monad##))
+
+(defmacro put-state
+  [st]
+  `(-put-state ~'this-monad## ~st))
 
 (def state-ctx (State. nil))
 
@@ -50,9 +53,9 @@
 (comment
   (m/run-state
    (m/mlet m.state/state-ctx
-     [{foo :foo :as a} (get-state)
-      b (return 3)
-      _ (put-state (assoc a :bar (* foo b)))
-      c (get-state)]
-     (return [a b c]))
+     [{foo :foo :as a} (m.state/get-state)
+      b (m/return 3)
+      _ (m.state/put-state (assoc a :bar (* foo b)))
+      c (m.state/get-state)]
+     (m/return [a b c]))
    {:monad.state/state {:foo 10}}))

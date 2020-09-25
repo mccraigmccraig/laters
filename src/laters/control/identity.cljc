@@ -16,6 +16,6 @@
 
 (comment
   (m/mlet m.id/identity-ctx
-    [a (return 1)
-     b (return 2)]
-    (return (+ a b))))
+    [a (m/return 1)
+     b (m/return 2)]
+    (m/return (+ a b))))

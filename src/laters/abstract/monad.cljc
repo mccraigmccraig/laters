@@ -25,6 +25,14 @@
   (-bind [m mv f])
   (-return [m v]))
 
+(defmacro bind
+  [mv f]
+  `(-bind ~'this-monad## ~mv ~f))
+
+(defmacro return
+  [v]
+  `(-return ~'this-monad## ~v))
+
 (defmulti -lets
   (fn [ctx-classname ctx]
     ctx-classname))
@@ -109,9 +117,7 @@
                                   `(bind ~m ~r (fn [~l] ~acc))))
                               `(do ~@body)))
            lets (into
-                 `[~'ctx ~m
-                   ~'return (fn ~'return [v#]
-                              (-return ~m v#))]
+                 `[~'this-monad## ~m]
                  ;; will this work on cljs ? it requires the macro
                  ;; to eval the clj version of the protocol
                  (-lets (-> (eval m) type .getName) m))]
