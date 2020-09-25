@@ -107,16 +107,6 @@
         :monad.state/state st'
         :monad/val nil}))))
 
-(defmethod m/-lets (.getName RWS)
-  [_ m]
-  `[~'ask (fn [] (m.r/-ask ~m))
-    ~'asks (fn [f#] (m.r/-asks ~m f#))
-    ~'local (fn [f# mv#] (m.r/-local ~m f# mv#))
-    ~'tell (fn [v#] (m.w/-tell ~m v#))
-    ~'listen (fn [mv#] (m.w/-listen ~m mv#))
-    ~'get-state (fn [] (m.st/-get-state ~m))
-    ~'put-state (fn [st'#] (m.st/-put-state ~m st'#))])
-
 (def rws-lifter
   {m.id/identity-ctx (fn [mv]
                        (fn [{r :monad.reader/env w :monad.writer/output st :monad.state/state}]
@@ -133,31 +123,31 @@
 
   (m/run-rws
    (m/mlet m.rws/rws-ctx
-     [a (return 5)
-      _ (tell :foo)
-      {b :bar} (ask)
-      c (asks :foo)
-      st (get-state)
-      _ (put-state (assoc st :baz (+ a b c)))
-      d (local
+     [a (m/return 5)
+      _ (m.writer/tell :foo)
+      {b :bar} (m.reader/ask)
+      c (m.reader/asks :foo)
+      st (m.state/get-state)
+      _ (m.state/put-state (assoc st :baz (+ a b c)))
+      d (m.reader/local
          #(assoc % :bar 30)
          (m/mlet m.rws/rws-ctx
-           [{a :foo b :bar} (ask)]
-           (return (+ a b))))
-      _ (tell d)]
-     (return [a b c d]))
+           [{a :foo b :bar} (m.reader/ask)]
+           (m/return (+ a b))))
+      _ (m.writer/tell d)]
+     (m/return [a b c d]))
    {:monad.reader/env {:foo 20 :bar 10}
     :monad.state/state {:fip 12}})
 
   ;; auto-lifting
   (m/run-rws
    (m/mlet m.rws/rws-ctx
-     [a (m/mlet m.id/identity-ctx [a (return 10)] (return a))
-      _ (tell :foo)
-      {b :bar} (ask)
-      st (get-state)
-      _ (tell st)
-      _ (put-state (assoc st :baz (+ a b)))]
-     (return (+ a b)))
+     [a (m/mlet m.id/identity-ctx [a (m/return 10)] (m/return a))
+      _ (m.writer/tell :foo)
+      {b :bar} (m.reader/ask)
+      st (m.state/get-state)
+      _ (m.writer/tell st)
+      _ (m.state/put-state (assoc st :baz (+ a b)))]
+     (m/return (+ a b)))
    {:monad.reader/env {:bar 10}
     :monad.state/state {:fip 12}}))

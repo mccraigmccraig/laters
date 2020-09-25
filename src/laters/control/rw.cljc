@@ -68,15 +68,6 @@
          {:monad.writer/output (f w)
           :monad/val val})))))
 
-(defmethod m/-lets (.getName RW)
-  [_ m]
-  `[~'ask (fn [] (m.r/-ask ~m))
-    ~'asks (fn [f#] (m.r/-asks ~m f#))
-    ~'local (fn [f# mv#] (m.r/-local ~m f# mv#))
-    ~'tell (fn [v#] (m.w/-tell ~m v#))
-    ~'listen (fn [mv#] (m.w/-listen ~m mv#))
-    ~'pass (fn [mv#] (m.w/-pass ~m mv#))])
-
 (def rw-lifter
   {m.id/identity-ctx
    (fn [mv]
@@ -94,32 +85,32 @@
 
   (m.rw/run-rw
    (m/mlet m.rw/rw-ctx
-     [a (return 5)
-      {b :bar} (ask)
-      c (asks :foo)]
-     (return [a b c]))
+     [a (m/return 5)
+      {b :bar} (m.reader/ask)
+      c (m.reader/asks :foo)]
+     (m/return [a b c]))
    {:monad.reader/env {:foo 55 :bar 10}})
 
   (m.rw/run-rw
    (m/mlet m.rw/rw-ctx
-     [a (return 5)
-      _ (tell :foo)
-      {b :bar} (ask)
-      c (asks :foo)
-      d (local
+     [a (m/return 5)
+      _ (m.writer/tell :foo)
+      {b :bar} (m.reader/ask)
+      c (m.reader/asks :foo)
+      d (m.reader/local
          #(assoc % :foo 10)
          (m/mlet m.rw/rw-ctx
-           [{a :foo b :bar} (ask)]
-           (return (* a b))))
+           [{a :foo b :bar} (m.reader/ask)]
+           (m/return (* a b))))
       ]
-     (return [(+ a b) c d]))
+     (m/return [(+ a b) c d]))
    {:monad.reader/env {:foo 55 :bar 10}})
 
   ;; auto-lifting
   (m.rw/run-rw
    (m/mlet m.rw/rw-ctx
-     [a (m/mlet m.id/identity-ctx [a (return 10)] (return a))
-      _ (tell :foo)
-      {b :bar} (ask)]
-     (return (+ a b)))
+     [a (m/mlet m.id/identity-ctx [a (m/return 10)] (m/return a))
+      _ (m.writer/tell :foo)
+      {b :bar} (m.reader/ask)]
+     (m/return (+ a b)))
    {:monad.reader/env {:bar 10}}))

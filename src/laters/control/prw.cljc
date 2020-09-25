@@ -87,15 +87,6 @@
             {:monad.writer/output (f w)
              :monad/val val})))))))
 
-(defmethod m/-lets (.getName PRW)
-  [_ m]
-  `[~'ask (fn [] (m.r/-ask ~m))
-    ~'asks (fn [f#] (m.r/-asks ~m f#))
-    ~'local (fn [f# mv#] (m.r/-local ~m f# mv#))
-    ~'tell (fn [v#] (m.w/-tell ~m v#))
-    ~'listen (fn [mv#] (m.w/-listen ~m mv#))
-    ~'pass (fn [mv#] (m.w/-pass ~m mv#))])
-
 (def prw-lifters
   {m.id/identity-ctx (fn [mv]
                        (fn [{r :monad.reader/env}]
@@ -119,33 +110,33 @@
 
   @(m/run-prw
     (m/mlet m.prw/prw-ctx
-      [{a :foo} (ask)
-       b (asks :bar)
-       c (return (+ a b))
-       _ (tell c)
-       d (local
+      [{a :foo} (m.reader/ask)
+       b (m.reader/asks :bar)
+       c (m/return (+ a b))
+       _ (m.writer/tell c)
+       d (m.reader/local
           #(assoc % :foo 20)
           (m/mlet m.prw/prw-ctx
-            [{a :foo b :bar} (ask)]
-            (return (+ a b))))
+            [{a :foo b :bar} (m.reader/ask)]
+            (m/return (+ a b))))
        {listen-out :monad.writer/output
-        e :monad/val} (listen
+        e :monad/val} (m.writer/listen
                        (m/mlet m.prw/prw-ctx
-                         [_ (tell :foofoo)
-                          _ (tell :barbar)]
-                         (return :blah)))
-       _ (tell listen-out)
-       f (pass
+                         [_ (m.writer/tell :foofoo)
+                          _ (m.writer/tell :barbar)]
+                         (m/return :blah)))
+       _ (m.writer/tell listen-out)
+       f (m.writer/pass
           (m/mlet m.prw/prw-ctx
-            [_ (tell :one)
-             _ (tell :two)
-             _ (tell :one)]
-            (return [:passed (fn [out] (filter #(= :one %) out))])))
+            [_ (m.writer/tell :one)
+             _ (m.writer/tell :two)
+             _ (m.writer/tell :one)]
+            (m/return [:passed (fn [out] (filter #(= :one %) out))])))
        g (m/mlet m.pr/promise-ctx
-           [a (return 100)
-            b (return 100)]
-           (return (* a a)))]
-      (return [a b c d e f g]))
+           [a (m/return 100)
+            b (m/return 100)]
+           (m/return (* a a)))]
+      (m/return [a b c d e f g]))
     {:monad.reader/env {:foo 10 :bar 20}})
 
 

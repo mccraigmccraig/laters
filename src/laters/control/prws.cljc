@@ -131,28 +131,23 @@
          :monad.state/state st'
          :monad/val nil})))))
 
-(defmethod m/-lets (.getName PRWS)
-  [_ m]
-  `[~'ask (fn [] (m.r/-ask ~m))
-    ~'asks (fn [f#] (m.r/-asks ~m f#))
-    ~'local (fn [f# mv#] (m.r/-local ~m f# mv#))
-    ~'tell (fn [v#] (m.w/-tell ~m v#))
-    ~'listen (fn [mv#] (m.w/-listen ~m mv#))
-    ~'pass (fn [mv#] (m.w/-pass ~m mv#))
-    ~'get-state (fn [] (m.st/-get-state ~m))
-    ~'put-state (fn [st'#] (m.st/-put-state ~m st'#))])
-
 (def prws-lifter
   {m.id/identity-ctx (fn [mv]
-                       (fn [{r :monad.reader/env w :monad.writer/output st :monad.state/state}]
+                       (fn [{r :monad.reader/env
+                            st :monad.state/state}]
                          (p/resolved
-                          {:monad.writer/output nil :monad.state/state st :monad/val mv})))
+                          {:monad.writer/output nil
+                           :monad.state/state st
+                           :monad/val mv})))
    m.pr/promise-ctx (fn [mv]
-                      (fn [{r :monad.reader/env w :monad.writer/output st :monad.state/state}]
+                      (fn [{r :monad.reader/env
+                           st :monad.state/state}]
                         (p/chain
                          mv
                          (fn [v]
-                           {:monad.writer/output nil :monad.state/state st :monad/val v}))))})
+                           {:monad.writer/output nil
+                            :monad.state/state st
+                            :monad/val v}))))})
 
 (def prws-ctx (PRWS. prws-lifter))
 
@@ -164,22 +159,22 @@
 
   @(m/run-prws
     (m/mlet m.prws/prws-ctx
-      [{a :foo} (ask)
-       b (asks :bar)
-       c (get-state)
-       _ (put-state a)
-       d (return (+ a b c))
-       _ (tell d)
+      [{a :foo} (m.reader/ask)
+       b (m.reader/asks :bar)
+       c (m.state/get-state)
+       _ (m.state/put-state a)
+       d (m/return (+ a b c))
+       _ (m.writer/tell d)
        e (m/mlet m.pr/promise-ctx
-           [a (return 100)
-            b (return 100)]
-           (return (* a a)))
-       f (local
+           [a (m/return 100)
+            b (m/return 100)]
+           (m/return (* a a)))
+       f (m.reader/local
           #(assoc % :bar 100)
           (m/mlet m.prws/prws-ctx
-            [{a :foo b :bar} (ask)]
-            (return (+ a b))))]
-      (return [a b c d e f]))
+            [{a :foo b :bar} (m.reader/ask)]
+            (m/return (+ a b))))]
+      (m/return [a b c d e f]))
     {:monad.reader/env {:foo 10 :bar 20}
      :monad.state/state 50})
   )

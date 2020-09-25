@@ -16,9 +16,13 @@
   (-mzero [m]
     (m/tag m nil)))
 
-(defmethod m/-lets (.getName Maybe)
-  [_ m]
-  `[~'nothing (fn [] (m/tag ~m nil))])
+(defn -nothing
+  [m]
+  (m/tag m nil))
+
+(defmacro nothing
+  []
+  `(-nothing ~'this-monad##))
 
 (def maybe-lifter
   {m.id/identity-ctx identity})
@@ -30,38 +34,37 @@
   `(m/mlet maybe-ctx
      ~@body))
 
-
 (comment
   (m/mlet m.maybe/maybe-ctx
-    [a (return 1)
-     b (nothing)
-     c (return 10)]
-    (return (+ a b c)))
+    [a (m/return 1)
+     b (m.maybe/nothing)
+     c (m/return 10)]
+    (m/return (+ a b c)))
 
   (m/mlet m.maybe/maybe-ctx
-    [a (return 1)
-     b (return 5)
-     c (return 10)]
-    (return (+ a b c)))
+    [a (m/return 1)
+     b (m/return 5)
+     c (m/return 10)]
+    (m/return (+ a b c)))
 
   (m/mlet m.maybe/maybe-ctx
-    [a (return 1)
-     b (return 5)
+    [a (m/return 1)
+     b (m/return 5)
      :when nil
-     c (return 10)]
-    (return (+ a b c)))
+     c (m/return 10)]
+    (m/return (+ a b c)))
 
   (m/mlet m.maybe/maybe-ctx
-    [a (return 1)
-     b (return 5)
+    [a (m/return 1)
+     b (m/return 5)
      :when true
-     c (return 10)]
-    (return (+ a b c)))
+     c (m/return 10)]
+    (m/return (+ a b c)))
 
   (m/mlet m.maybe/maybe-ctx
-    [a (m/mlet m.id/identity-ctx [a (return 10)] (return a))
-     b (return 3)]
-    (return (* a b)))
+    [a (m/mlet m.id/identity-ctx [a (m/return 10)] (m/return a))
+     b (m/return 3)]
+    (m/return (* a b)))
 
 
   )

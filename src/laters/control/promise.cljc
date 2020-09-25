@@ -27,13 +27,13 @@
 (comment
 
   (def mv (m/mlet m.pr/promise-ctx
-            [a (return 2)
-             b (return 3)]
-            (return (* a b))))
+            [a (m/return 2)
+             b (m/return 3)]
+            (m/return (* a b))))
 
   ;; auto-lifting
   (def mv (m/mlet m.pr/promise-ctx
             [a (m/-return m.id/identity-ctx 100)
-             b (return 3)]
-            (return (* a b))))
+             b (m/return 3)]
+            (m/return (* a b))))
   )
