@@ -20,9 +20,9 @@
           (m/lift-untag lifter m (f v)))))))
   (-return [m v]
     (m/tag m (p/resolved v)))
+  MonadPromise
   (-reject [m v]
     (m/tag m (p/rejected v)))
-  MonadPromise
   (-catch [m handler mv]
     (m/tag
      m

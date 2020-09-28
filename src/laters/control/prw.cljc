@@ -22,36 +22,32 @@
 (defn is-prw-error?
   [error]
   (and (instance? ExceptionInfo error)
-       (-> error ex-data (contains? :monad.writer/output))
+       (= ::error (-> error ex-data :type))
        (instance? Atom (-> error ex-data :monad.writer/output))))
 
-(defn summarise-error
-  [error]
-  (let [msg (.getMessage error)
-        stacktrace-str  (with-out-str (binding [*err* *out*] (.printStackTrace error)))
-        stacktrace-lines (->> stacktrace-str
-                              (str/split-lines)
-                              (take 10)
-                              (str/join "\n")
-                              (apply str))]
-    (str msg "\n" stacktrace-lines)))
+(defn prw-error
+  ([error] (prw-error error nil))
+  ([error prior-output]
+   (ex-info
+    (str ::error)
+    {:type ::error
+     :monad/error error
+     :monad.writer/output (atom prior-output)})))
 
 (defn concat-error
-  [error prior-output prior-value]
+  [error prior-output]
   (let [error (unwrap-error error)]
     (if (is-prw-error? error)
+
       (do
         (swap!
          (-> error ex-data :monad.writer/output)
          (fn [output]
            ((fnil into []) prior-output output)))
+
         error)
 
-      (ex-info
-       (str :laters.control.prw/error)
-       {:monad/error (summarise-error error)
-        :monad.writer/prior-value prior-value
-        :monad.writer/output (atom prior-output)}))))
+      (prw-error error prior-output))))
 
 (defmacro pcatch
   "catch any exception and return as a rejected promise"
@@ -74,18 +70,17 @@
                  v :monad/val :as success}
                 error]
               (if (some? error)
-                (p/rejected (concat-error error [] ::none))
+                (p/rejected (concat-error error []))
                 (p/handle
                  (pcatch ((m/lift-untag lifter m (f v)) {:monad.reader/env env}))
                  (fn [{w' :monad.writer/output
                       v' :monad/val :as success}
                      error]
                    (if (some? error)
-                     (p/rejected (concat-error error w v))
+                     (p/rejected (concat-error error w))
                      (p/resolved
                       {:monad.writer/output ((fnil into []) w w')
-                       :monad/val v'})))))
-              ))))))
+                       :monad/val v'})))))))))))
   (-return [m v]
     (m/tag
      m
@@ -94,6 +89,16 @@
         {:monad.writer/output nil
          :monad/val v}))))
   m.pr/MonadPromise
+  (-reject [m v]
+    (m/tag
+     m
+     (fn [_]
+       (p/rejected
+        (prw-error v)))))
+
+  ;; catches an errored PRW mv
+  ;;  - outputs any captured output
+  ;;  - returns a val with (handler original-error)
   (-catch [m handler mv]
     (m/tag
      m
@@ -102,8 +107,17 @@
            (p/handle
             (fn [success error]
               (if (some? error)
-                {:monad.writer/output nil
-                 :monad/val (handler error)}
+
+                (let [error (unwrap-error error)
+                      {output-a :monad.writer/output
+                       cause :monad/error} (ex-data error)
+
+                      output (some-> output-a deref)
+                      val (handler cause)]
+
+                  {:monad.writer/output output
+                   :monad/val val})
+
                 success)))))))
   m/MonadZero
   (-mzero [m]
@@ -224,7 +238,7 @@
       [_ (m.writer/tell :foo)
        a (m/return 5)
        _ (m.writer/tell :bar)
-       _ (throw (ex-info "wah" {}))]
+       _ (throw (ex-info "wah" {:type :wah}))]
       (m/return a)))
 
   (def er
@@ -236,7 +250,7 @@
     (m.prw/run-prw
      (m/mlet m.prw/prw-ctx
        [a (m.pr/catch
-              (fn [e] [:error (-> e .getCause ex-data)])
+              ex-data
               emv)]
        (m/return a))
      {:monad.reader/env {}})))
