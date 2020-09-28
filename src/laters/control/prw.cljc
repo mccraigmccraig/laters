@@ -1,11 +1,66 @@
 (ns laters.control.prw
   (:require
+   [clojure.string :as str]
    [laters.abstract.monad :as m]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
    [laters.control.promise :as m.pr]
-   [promesa.core :as p]))
+   [promesa.core :as p])
+  (:import
+   [java.util.concurrent ExecutionException CompletionException]
+   [clojure.lang ExceptionInfo]
+   [clojure.lang Atom]))
+
+(defn unwrap-error
+  "java.util.concurrent likes to wrap exceptions"
+  [error]
+  (if-let [cause (.getCause error)]
+    cause
+    error))
+
+(defn is-prw-error?
+  [error]
+  (and (instance? ExceptionInfo error)
+       (-> error ex-data (contains? :monad.writer/output))
+       (instance? Atom (-> error ex-data :monad.writer/output))))
+
+(defn summarise-error
+  [error]
+  (let [msg (.getMessage error)
+        stacktrace-str  (with-out-str (binding [*err* *out*] (.printStackTrace error)))
+        stacktrace-lines (->> stacktrace-str
+                              (str/split-lines)
+                              (take 10)
+                              (str/join "\n")
+                              (apply str))]
+    (str msg "\n" stacktrace-lines)))
+
+(defn concat-error
+  [error prior-output prior-value]
+  (prn "concat-error" prior-output)
+  (let [error (unwrap-error error)]
+    (if (is-prw-error? error)
+      (do
+        (swap!
+         (-> error ex-data :monad.writer/output)
+         (fn [output]
+           ((fnil into []) prior-output output)))
+        error)
+
+      (ex-info
+       (str :laters.control.prw/error)
+       {:monad/error (summarise-error error)
+        :monad.writer/prior-value prior-value
+        :monad.writer/output (atom prior-output)}))))
+
+(defmacro pcatch
+  "catch any exception and return as a rejected promise"
+  [& body]
+  `(try
+     ~@body
+     (catch Exception x#
+       (p/rejected x#))))
 
 ;; ({:monad.reader/env r})->Promise<{:monad/val v :monad.writer/output w}
 (deftype PRW [lifter]
@@ -14,17 +69,24 @@
     (m/tag
      m
      (fn [{env :monad.reader/env}]
-       (p/chain
-        ((m/lift-untag lifter m wmv) {:monad.reader/env env})
-        (fn [{w :monad.writer/output
-             v :monad/val}]
-          (p/all [w ((m/lift-untag lifter m (f v)) {:monad.reader/env env})]))
-        (fn [[w
-             {w' :monad.writer/output
-              v' :monad/val}]]
-          (p/resolved
-           {:monad.writer/output ((fnil into []) w w')
-            :monad/val v'}))))))
+       (-> (pcatch ((m/lift-untag lifter m wmv) {:monad.reader/env env}))
+           (p/handle
+            (fn [{w :monad.writer/output
+                 v :monad/val :as success}
+                error]
+              (if (some? error)
+                (p/rejected (concat-error error [] ::none))
+                (p/handle
+                 (pcatch ((m/lift-untag lifter m (f v)) {:monad.reader/env env}))
+                 (fn [{w' :monad.writer/output
+                      v' :monad/val :as success}
+                     error]
+                   (if (some? error)
+                     (p/rejected (concat-error error w v))
+                     (p/resolved
+                      {:monad.writer/output ((fnil into []) w w')
+                       :monad/val v'})))))
+              ))))))
   (-return [m v]
     (m/tag
      m
@@ -32,6 +94,20 @@
        (p/resolved
         {:monad.writer/output nil
          :monad/val v}))))
+  m.pr/MonadPromise
+  (-catch [m handler mv]
+    (m/tag
+     m
+     (fn [{env :monad.reader/env}]
+       (prn "-catch outer")
+       (-> (pcatch ((m/lift-untag lifter m mv) {:monad.reader/env env}))
+           (p/handle
+            (fn [success error]
+              (prn "-catch inner")
+              (if (some? error)
+                {:monad.writer/output nil
+                 :monad/val (handler error)}
+                success)))))))
   m/MonadZero
   (-mzero [m]
     (m/tag
@@ -107,8 +183,13 @@
 
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.reader :as m.reader])
+  (require '[laters.control.writer :as m.writer])
+  (require '[laters.control.promise :as m.pr])
+  (require '[laters.control.prw :as m.prw])
 
-  @(m/run-prw
+  @(m.prw/run-prw
     (m/mlet m.prw/prw-ctx
       [{a :foo} (m.reader/ask)
        b (m.reader/asks :bar)
@@ -139,7 +220,21 @@
       (m/return [a b c d e f g]))
     {:monad.reader/env {:foo 10 :bar 20}})
 
+  ;; catch
 
+  (def emv
+    (m/mlet m.prw/prw-ctx
+      [_ (m.writer/tell :foo)
+       _ (m.writer/tell :bar)
+       _ (m/return 5)
+       _ (throw (ex-info "wah" {}))]
+      (throw (ex-info "boo" {}))))
 
-
-  )
+  (def cemv
+    (m.prw/run-prw
+     (m/mlet m.prw/prw-ctx
+       [a (m.pr/catch
+              (fn [e] [:error (-> e .getCause ex-data)])
+              emv)]
+       (m/return a))
+     {:monad.reader/env {}})))
