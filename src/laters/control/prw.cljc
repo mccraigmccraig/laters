@@ -38,7 +38,6 @@
 
 (defn concat-error
   [error prior-output prior-value]
-  (prn "concat-error" prior-output)
   (let [error (unwrap-error error)]
     (if (is-prw-error? error)
       (do
@@ -99,11 +98,9 @@
     (m/tag
      m
      (fn [{env :monad.reader/env}]
-       (prn "-catch outer")
        (-> (pcatch ((m/lift-untag lifter m mv) {:monad.reader/env env}))
            (p/handle
             (fn [success error]
-              (prn "-catch inner")
               (if (some? error)
                 {:monad.writer/output nil
                  :monad/val (handler error)}
@@ -225,12 +222,17 @@
   (def emv
     (m/mlet m.prw/prw-ctx
       [_ (m.writer/tell :foo)
+       a (m/return 5)
        _ (m.writer/tell :bar)
-       _ (m/return 5)
        _ (throw (ex-info "wah" {}))]
-      (throw (ex-info "boo" {}))))
+      (m/return a)))
 
-  (def cemv
+  (def er
+    (m.prw/run-prw
+     emv
+     {:monad.reader/env {}}))
+
+  (def ce
     (m.prw/run-prw
      (m/mlet m.prw/prw-ctx
        [a (m.pr/catch
