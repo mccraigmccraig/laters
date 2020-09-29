@@ -1,6 +1,5 @@
 (ns laters.control.prw
   (:require
-   [clojure.string :as str]
    [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
    [laters.abstract.tagged :as t]
@@ -53,14 +52,6 @@
 
       (prw-error error prior-output))))
 
-(defmacro pcatch
-  "catch any exception and return as a rejected promise"
-  [& body]
-  `(try
-     ~@body
-     (catch Exception x#
-       (p/rejected x#))))
-
 ;; ({:monad.reader/env r})->Promise<{:monad/val v :monad.writer/output w}
 (deftype PRW [lifter]
   m.p/Monad
@@ -68,7 +59,7 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (-> (pcatch ((l/lift-untag lifter m wmv) {:monad.reader/env env}))
+       (-> (m.pr/pcatch ((l/lift-untag lifter m wmv) {:monad.reader/env env}))
            (p/handle
             (fn [{w :monad.writer/output
                  v :monad/val :as success}
@@ -76,7 +67,7 @@
               (if (some? error)
                 (p/rejected (concat-error error []))
                 (p/handle
-                 (pcatch ((l/lift-untag lifter m (f v)) {:monad.reader/env env}))
+                 (m.pr/pcatch ((l/lift-untag lifter m (f v)) {:monad.reader/env env}))
                  (fn [{w' :monad.writer/output
                       v' :monad/val :as success}
                      error]
@@ -107,7 +98,7 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (-> (pcatch ((l/lift-untag lifter m mv) {:monad.reader/env env}))
+       (-> (m.pr/pcatch ((l/lift-untag lifter m mv) {:monad.reader/env env}))
            (p/handle
             (fn [success error]
               (if (some? error)

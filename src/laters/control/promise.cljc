@@ -7,9 +7,24 @@
    [laters.control.identity :as m.id]
    [promesa.core :as p]))
 
+(defmacro pcatch
+  "catch any exception and return as a rejected promise"
+  [& body]
+  `(try
+     ~@body
+     (catch Exception x#
+       (p/rejected x#))))
+
 (defprotocol MonadPromise
   (-reject [m v])
   (-catch [m handler mv]))
+
+(defmacro catch-reject
+  [m & body]
+  `(try
+     ~@body
+     (catch Exception x#
+       (-reject ~m x#))))
 
 (deftype Promise [lifter]
   m.p/Monad
@@ -37,14 +52,16 @@
           success))))))
 
 (defmacro reject
-  ([ctx v]
-   `(-reject ~ctx ~v))
+  ([m v]
+   `(-reject ~m ~v))
   ([v]
    `(-reject ~'this-monad## ~v)))
 
 (defmacro catch
-  [handler mv]
-  `(-catch ~'this-monad## ~handler ~mv))
+  ([m handler mv]
+   `(-catch ~m ~handler (catch-reject ~m ~mv)))
+  ([handler mv]
+   `(-catch ~'this-monad## ~handler (catch-reject ~'this-monad## ~mv))))
 
 (def promise-lifter
   {m.id/identity-ctx (fn [mv]
