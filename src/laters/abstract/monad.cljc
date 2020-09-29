@@ -151,13 +151,17 @@
          `(let [~'this-monad## ~m]
             ~forms)))))
 
+(defn deflets*
+  [letsym-ctx-map]
+  `(do
+     ~@(for [[sym ctx] letsym-ctx-map]
+         `(defmacro ~(symbol (name sym))
+            ([~'& body#]
+             `(mlet ~'~ctx ~@body#))))))
+
 #?(:clj
    (defmacro deflets
      "given a map of syms to monadic contexts, def a series of
       mlet shortcut macros"
      [letsym-ctx-map]
-     `(do
-        ~@(for [[sym ctx] letsym-ctx-map]
-            `(defmacro ~(symbol (name sym))
-               ([~'& body#]
-                `(mlet ~~ctx ~@body#)))))))
+     (deflets* letsym-ctx-map)))
