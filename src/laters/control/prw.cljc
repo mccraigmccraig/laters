@@ -86,7 +86,7 @@
      m
      (fn [_]
        (p/resolved
-        {:monad.writer/output nil
+        {:monad.writer/output []
          :monad/val v}))))
   m.pr/MonadPromise
   (-reject [m v]
@@ -186,7 +186,15 @@
                          (fn [v]
                            {:monad.writer/output nil :monad/val v}))))})
 
-(def prw-ctx (PRW. prw-lifters))
+(def prw-lifter (m/create-atomic-lifter))
+
+(def prw-ctx (PRW. prw-lifter))
+
+(doseq [[from-ctx lifter] prw-lifters]
+  (m/-register prw-lifter prw-ctx from-ctx lifter))
+
+(m/deflets
+  {prw-let prw-ctx})
 
 (defn run-prw
   [wmv rw]
@@ -195,6 +203,7 @@
 
 (comment
   (require '[laters.abstract.monad :as m])
+  (require '[laters.control.identity :as m.id])
   (require '[laters.control.reader :as m.reader])
   (require '[laters.control.writer :as m.writer])
   (require '[laters.control.promise :as m.pr])
@@ -235,11 +244,12 @@
 
   (def emv
     (m/mlet m.prw/prw-ctx
-      [_ (m.writer/tell :foo)
-       a (m/return 5)
+      [a (m.reader/asks :foo)
+       _ (m.writer/tell [:foo a])
+       b (m/return 5)
        _ (m.writer/tell :bar)
-       _ (throw (ex-info "wah" {:type :wah}))]
-      (m/return a)))
+       _ (throw (ex-info "wah" {:a a :b b}))]
+      (m/return [a b])))
 
   (def er
     (m.prw/run-prw
@@ -249,8 +259,6 @@
   (def ce
     (m.prw/run-prw
      (m/mlet m.prw/prw-ctx
-       [a (m.pr/catch
-              ex-data
-              emv)]
+       [a (m.pr/catch ex-data emv)]
        (m/return a))
-     {:monad.reader/env {}})))
+     {:monad.reader/env {:foo 10}})))
