@@ -1,7 +1,9 @@
 (ns laters.control.reader
   (:require
    [laters.abstract.monad.protocols :as m.p]
-   [laters.abstract.monad :as m]))
+   [laters.abstract.monad :as m]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l]))
 
 (defprotocol MonadReader
   (-ask [m])
@@ -10,23 +12,23 @@
 (deftype Reader [lifter]
   m.p/Monad
   (-bind [m mv f]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (let [{v :monad/val} ((m/lift-untag lifter m mv)
+       (let [{v :monad/val} ((l/lift-untag lifter m mv)
                              {:monad.reader/env env})]
-         ((m/lift-untag lifter m (f v))
+         ((l/lift-untag lifter m (f v))
           {:monad.reader/env env})))))
   (-return [m v]
-    (m/tag m (fn [_] {:monad/val v})))
+    (t/tag m (fn [_] {:monad/val v})))
   MonadReader
   (-ask [m]
-    (m/tag m (fn [{env :monad.reader/env}] {:monad/val env})))
+    (t/tag m (fn [{env :monad.reader/env}] {:monad/val env})))
   (-local [m f mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
-       ((m/lift-untag lifter m mv) {:monad.reader/env (f env)})))))
+       ((l/lift-untag lifter m mv) {:monad.reader/env (f env)})))))
 
 (defmacro ask
   ([m]
@@ -42,14 +44,14 @@
 
 (defn -asks
   [m f]
-  (m/tag
+  (t/tag
    m
    (fn [{env :monad.reader/env :as arg}]
      ;; note this assocs the modified :monad.reader/env to
      ;; the arg map, rather than constructing a new arg map,
      ;; so will work with e.g. RWS monad too
      ;; which will pass :monad.state/state in arg
-     ((m/untag (-ask m)) (assoc arg :monad.reader/env (f env))))))
+     ((t/untag (-ask m)) (assoc arg :monad.reader/env (f env))))))
 
 (defmacro asks
   ([m f]
@@ -60,11 +62,13 @@
 (def reader-ctx (Reader. nil))
 (defn run-reader
   [wmv env]
-  ((m/untag wmv) env))
+  ((t/untag wmv) env))
 
 
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.reader :as m.reader])
 
   (m.reader/run-reader
    (m/mlet m.reader/reader-ctx

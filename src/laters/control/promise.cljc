@@ -2,6 +2,8 @@
   (:require
    [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l]
    [laters.control.identity :as m.id]
    [promesa.core :as p]))
 
@@ -12,23 +14,23 @@
 (deftype Promise [lifter]
   m.p/Monad
   (-bind [m tmv f]
-    (let [mv (m/lift-untag lifter m tmv)]
-      (m/tag
+    (let [mv (l/lift-untag lifter m tmv)]
+      (t/tag
        m
        (p/chain
         mv
         (fn [v]
-          (m/lift-untag lifter m (f v)))))))
+          (l/lift-untag lifter m (f v)))))))
   (-return [m v]
-    (m/tag m (p/resolved v)))
+    (t/tag m (p/resolved v)))
   MonadPromise
   (-reject [m v]
-    (m/tag m (p/rejected v)))
+    (t/tag m (p/rejected v)))
   (-catch [m handler mv]
-    (m/tag
+    (t/tag
      m
      (p/handle
-      (m/lift-untag lifter m mv)
+      (l/lift-untag lifter m mv)
       (fn [success error]
         (if (some? error)
           (handler error)
@@ -52,6 +54,9 @@
   (Promise. promise-lifter))
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.identity :as m.id])
+  (require '[laters.control.promise :as m.pr])
 
   (def mv (m/mlet m.pr/promise-ctx
             [a (m/return 2)

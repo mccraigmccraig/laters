@@ -1,7 +1,9 @@
 (ns laters.control.writer
   (:require
    [laters.abstract.monad.protocols :as m.p]
-   [laters.abstract.monad :as m])
+   [laters.abstract.monad :as m]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l])
   (:import
    [clojure.lang PersistentVector]))
 
@@ -24,17 +26,17 @@
 (deftype Writer [lifter]
   m.p/Monad
   (-bind [m mv f]
-    (m/tag
+    (t/tag
      m
      (fn [_]
        (let [{w :monad.writer/output
-              val :monad/val} ((m/lift-untag lifter m mv) {})
+              val :monad/val} ((l/lift-untag lifter m mv) {})
              {w' :monad.writer/output
-              val' :monad/val} ((m/lift-untag lifter m (f val)) {})]
+              val' :monad/val} ((l/lift-untag lifter m (f val)) {})]
          {:monad.writer/output (into w w')
           :monad/val val'}))))
   (-return [m v]
-    (m/tag
+    (t/tag
      m
      (fn [_]
        {:monad.writer/output nil
@@ -42,26 +44,26 @@
 
   MonadWriter
   (-tell [m v]
-    (m/tag
+    (t/tag
      m
      (fn [_]
        {:monad.writer/output [v]
         :monad/val nil })))
   (-listen [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [_]
        (let [{w :monad.writer/output
               val :monad/val
-              :as lv} ((m/lift-untag lifter m mv) {})]
+              :as lv} ((l/lift-untag lifter m mv) {})]
          {:monad.writer/output w
           :monad/val lv}))))
   (-pass [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [_]
        (let [{w :monad.writer/output
-              pass-val :monad/val} ((m/lift-untag lifter m mv) {})
+              pass-val :monad/val} ((l/lift-untag lifter m mv) {})
              [val f] (-as-vec pass-val)]
          {:monad.writer/output (f w)
           :monad/val val})))))
@@ -88,9 +90,12 @@
 
 (defn run-writer
   [mv]
-  ((m/untag mv) nil))
+  ((t/untag mv) nil))
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.writer :as m.writer])
+
   (m.writer/run-writer
    (m/mlet m.writer/writer-ctx
      [_ (m.writer/tell :foo)

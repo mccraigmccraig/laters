@@ -3,6 +3,9 @@
    [clojure.string :as str]
    [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l]
+   [laters.abstract.lifter.protocols :as l.p]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
@@ -62,10 +65,10 @@
 (deftype PRW [lifter]
   m.p/Monad
   (-bind [m wmv f]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (-> (pcatch ((m/lift-untag lifter m wmv) {:monad.reader/env env}))
+       (-> (pcatch ((l/lift-untag lifter m wmv) {:monad.reader/env env}))
            (p/handle
             (fn [{w :monad.writer/output
                  v :monad/val :as success}
@@ -73,7 +76,7 @@
               (if (some? error)
                 (p/rejected (concat-error error []))
                 (p/handle
-                 (pcatch ((m/lift-untag lifter m (f v)) {:monad.reader/env env}))
+                 (pcatch ((l/lift-untag lifter m (f v)) {:monad.reader/env env}))
                  (fn [{w' :monad.writer/output
                       v' :monad/val :as success}
                      error]
@@ -83,7 +86,7 @@
                       {:monad.writer/output ((fnil into []) w w')
                        :monad/val v'})))))))))))
   (-return [m v]
-    (m/tag
+    (t/tag
      m
      (fn [_]
        (p/resolved
@@ -91,7 +94,7 @@
          :monad/val v}))))
   m.pr/MonadPromise
   (-reject [m v]
-    (m/tag
+    (t/tag
      m
      (fn [_]
        (p/rejected
@@ -101,10 +104,10 @@
   ;;  - outputs any captured output
   ;;  - returns a val with (handler original-error)
   (-catch [m handler mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (-> (pcatch ((m/lift-untag lifter m mv) {:monad.reader/env env}))
+       (-> (pcatch ((l/lift-untag lifter m mv) {:monad.reader/env env}))
            (p/handle
             (fn [success error]
               (if (some? error)
@@ -122,7 +125,7 @@
                 success)))))))
   m.p/MonadZero
   (-mzero [m]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        (p/rejected
@@ -132,43 +135,43 @@
           :monad/val nil})))))
   m.r/MonadReader
   (-ask [m]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        (p/resolved
         {:monad.writer/output nil
          :monad/val env}))))
   (-local [m f mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
-       ((m/lift-untag lifter m mv)
+       ((l/lift-untag lifter m mv)
         {:monad.reader/env (f env)}))))
 
   m.w/MonadWriter
   (-tell [m v]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        (p/resolved
         {:monad.writer/output [v] :monad/val nil}))))
   (-listen [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        (p/chain
-        ((m/lift-untag lifter m mv) {:monad.reader/env env})
+        ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
              v :monad/val
              :as lv}]
           {:monad.writer/output w
            :monad/val lv})))))
   (-pass [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        (p/chain
-        ((m/lift-untag lifter m mv) {:monad.reader/env env})
+        ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
              pass-val :monad/val}]
           (let [[val f] (m.w/-as-vec pass-val)]
@@ -187,25 +190,19 @@
                          (fn [v]
                            {:monad.writer/output nil :monad/val v}))))})
 
-(def prw-lifter (m/create-atomic-lifter))
+(def prw-lifter (l/create-atomic-lifter))
 
 (def prw-ctx (PRW. prw-lifters))
 
 (doseq [[from-ctx lifter] prw-lifters]
-  (m.p/-register prw-lifter prw-ctx from-ctx lifter))
+  (l.p/-register prw-lifter prw-ctx from-ctx lifter))
 
 (m/deflets
   {prw-let laters.control.prw/prw-ctx})
 
-(defmacro prw-let
-  [& body]
-  `(m/mlet prw-ctx ~@body))
-
-
 (defn run-prw
   [wmv rw]
-  ((m/untag wmv) rw))
-
+  ((t/untag wmv) rw))
 
 (comment
   (require '[laters.abstract.monad :as m])

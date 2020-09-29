@@ -2,6 +2,8 @@
   (:require
    [laters.abstract.monad :as m]
    [laters.abstract.monad.protocols :as m.p]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
@@ -11,19 +13,19 @@
 (deftype RWS [lifter]
   m.p/Monad
   (-bind [m mv f]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (let [{w :monad.writer/output
               st' :monad.state/state
-              v :monad/val} ((m/lift-untag lifter m mv)
+              v :monad/val} ((l/lift-untag lifter m mv)
                              {:monad.reader/env env
                               :monad.state/state st})
 
              {w' :monad.writer/output
               st'' :monad.state/state
-              v' :monad/val} ((m/lift-untag lifter m (f v))
+              v' :monad/val} ((l/lift-untag lifter m (f v))
                               {:monad.reader/env env
                                :monad.state/state st'})]
 
@@ -31,7 +33,7 @@
           :monad.state/state st''
           :monad/val v'}))))
   (-return [m v]
-    (m/tag
+    (t/tag
      m
      (fn [{r :monad.reader/env
           st :monad.state/state}]
@@ -41,7 +43,7 @@
 
   m.r/MonadReader
   (-ask [m]
-    (m/tag
+    (t/tag
      m
      (fn [{r :monad.reader/env st
           :monad.state/state}]
@@ -49,17 +51,17 @@
         :monad.state/state st
         :monad/val r})))
   (-local [m f mv]
-    (m/tag
+    (t/tag
      m
      (fn [{r :monad.reader/env
           st :monad.state/state}]
-       ((m/lift-untag lifter m mv)
+       ((l/lift-untag lifter m mv)
         {:monad.reader/env (f r)
          :monad.state/state st}))))
 
   m.w/MonadWriter
   (-tell [m v]
-    (m/tag
+    (t/tag
      m
      (fn [{r :monad.reader/env
           st :monad.state/state}]
@@ -67,22 +69,22 @@
         :monad.state/state st
         :monad/val nil})))
   (-listen [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        {:monad.writer/output nil
         :monad.state/state st
-        :monad/val ((m/lift-untag lifter m mv)
+        :monad/val ((l/lift-untag lifter m mv)
                     {:monad.reader/env env})})))
   (-pass [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (let [{w :monad.writer/output
               st' :monad.state/state
-              pass-val :monad/val} ((m/lift-untag lifter m mv)
+              pass-val :monad/val} ((l/lift-untag lifter m mv)
                                     {:monad.reader/env env
                                      :monad.state/state st})
              [val f] (m.w/-as-vec pass-val)]
@@ -92,7 +94,7 @@
 
   m.st/MonadState
   (-get-state [m]
-    (m/tag
+    (t/tag
      m
      (fn [{r :monad.reader/env
           st :monad.state/state}]
@@ -100,7 +102,7 @@
         :monad.state/state st
         :monad/val st})))
   (-put-state [m st']
-    (m/tag
+    (t/tag
      m
      (fn [{r :monad.reader/env
           st :monad.state/state}]
@@ -117,10 +119,13 @@
 
 (defn run-rws
   [wmv rws]
-  ((m/untag wmv) rws))
+  ((t/untag wmv) rws))
 
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.identity :as m.id])
+  (require '[laters.control.rws :as m.rws])
 
   (m.rws/run-rws
    (m/mlet m.rws/rws-ctx

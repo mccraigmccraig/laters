@@ -2,6 +2,8 @@
   (:require
    [laters.abstract.monad :as m]
    [laters.abstract.monad.protocols :as m.p]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
@@ -14,17 +16,17 @@
 (deftype PRWS [lifter]
   m.p/Monad
   (-bind [m wmv f]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (p/chain
-        ((m/lift-untag lifter m wmv) {:monad.reader/env env
+        ((l/lift-untag lifter m wmv) {:monad.reader/env env
                                       :monad.state/state st})
         (fn [{w :monad.writer/output
              st' :monad.state/state
              v :monad/val}]
-          (p/all [w ((m/lift-untag lifter m (f v))
+          (p/all [w ((l/lift-untag lifter m (f v))
                      {:monad.reader/env env
                       :monad.state/state st'})]))
         (fn [[w {w' :monad.writer/output
@@ -35,7 +37,7 @@
             :monad.state/state st''
             :monad/val v'}))))))
   (-return [m v]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
@@ -45,7 +47,7 @@
          :monad/val v}))))
   m.p/MonadZero
   (-mzero [m]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
@@ -58,7 +60,7 @@
 
   m.r/MonadReader
   (-ask [m]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
@@ -67,27 +69,27 @@
          :monad.state/state st
          :monad/val env}))))
   (-local [m f mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       ((m/lift-untag lifter m mv) {:monad.reader/env (f env)
+       ((l/lift-untag lifter m mv) {:monad.reader/env (f env)
                                     :monad.state/state st}))))
 
   m.w/MonadWriter
   (-tell [m v]
-    (m/tag
+    (t/tag
      m
      (fn [{r :monad.reader/env st :monad.state/state}]
        (p/resolved
         {:monad.writer/output [v] :monad.state/state st :monad/val nil}))))
   (-listen [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (p/chain
-        ((m/lift-untag lifter m mv) {:monad.reader/env env
+        ((l/lift-untag lifter m mv) {:monad.reader/env env
                                      :monad.state/state st})
         (fn [{w :monad.writer/output
              st' :monad.state/state
@@ -97,12 +99,12 @@
            :monad.state/state st'
            :monad/val lv})))))
   (-pass [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (p/chain
-        ((m/lift-untag lifter m mv) {:monad.reader/env env
+        ((l/lift-untag lifter m mv) {:monad.reader/env env
                                      :monad.state/state st})
         (fn [{w :monad.writer/output
              st' :monad.state/state
@@ -114,7 +116,7 @@
 
   m.st/MonadState
   (-get-state [m]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
@@ -123,7 +125,7 @@
          :monad.state/state st
          :monad/val st}))))
   (-put-state [m st']
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
@@ -154,9 +156,16 @@
 
 (defn run-prws
   [wmv rws]
-  ((m/untag wmv) rws))
+  ((t/untag wmv) rws))
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.identity :as m.id])
+  (require '[laters.control.maybe :as m.maybe])
+  (require '[laters.control.reader :as m.reader])
+  (require '[laters.control.writer :as m.writer])
+  (require '[laters.control.promise :as m.pr])
+  (require '[laters.control.prws :as m.prws])
 
   @(m.prws/run-prws
     (m/mlet m.prws/prws-ctx

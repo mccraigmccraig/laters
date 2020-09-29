@@ -2,6 +2,8 @@
   (:require
    [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]))
@@ -10,19 +12,19 @@
 (deftype RW [lifter]
   m.p/Monad
   (-bind [m mv f]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        (let [{w :monad.writer/output
-              v :monad/val} ((m/lift-untag lifter m mv)
+              v :monad/val} ((l/lift-untag lifter m mv)
                              {:monad.reader/env env})
              {w' :monad.writer/output
-              v' :monad/val} ((m/lift-untag lifter m (f v))
+              v' :monad/val} ((l/lift-untag lifter m (f v))
                               {:monad.reader/env env})]
          {:monad.writer/output ((fnil into []) w w')
           :monad/val v'}))))
   (-return [m v]
-    (m/tag
+    (t/tag
      m
      (fn [_]
        {:monad.writer/output nil
@@ -30,40 +32,40 @@
 
   m.r/MonadReader
   (-ask [m]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        {:monad.writer/output nil
         :monad/val env})))
   (-local [m f mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
-       ((m/lift-untag lifter m mv) {:monad.reader/env (f env)}))))
+       ((l/lift-untag lifter m mv) {:monad.reader/env (f env)}))))
 
   m.w/MonadWriter
   (-tell [m v]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        {:monad.writer/output [v]
         :monad/val nil})))
   (-listen [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        (let [{w :monad.writer/output
               v :monad/val
-              :as lv} ((m/lift-untag lifter m mv)
+              :as lv} ((l/lift-untag lifter m mv)
                        {:monad.reader/env env})]
          {:monad.writer/output w
           :monad/val lv}))))
   (-pass [m mv]
-    (m/tag
+    (t/tag
      m
      (fn [{env :monad.reader/env}]
        (let [{w :monad.writer/output
-              pass-val :monad/val} ((m/lift-untag lifter m mv)
+              pass-val :monad/val} ((l/lift-untag lifter m mv)
                                     {:monad.reader/env env})
              [val f] (m.w/-as-vec pass-val)]
          {:monad.writer/output (f w)
@@ -80,9 +82,12 @@
 
 (defn run-rw
   [tmv rw]
-  ((m/untag tmv) rw))
+  ((t/untag tmv) rw))
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.identity :as m.id])
+  (require '[laters.control.rw :as m.rw])
 
   (m.rw/run-rw
    (m/mlet m.rw/rw-ctx

@@ -2,24 +2,26 @@
   (:require
    [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l]
    [laters.control.identity :as m.id]))
 
 (deftype Maybe [lifter]
   m.p/Monad
   (-bind [m wmv f]
-    (let [mv (m/lift-untag lifter m wmv)]
+    (let [mv (l/lift-untag lifter m wmv)]
       (if (some? mv)
-        (m/lift lifter m (f mv))
-        (m/tag m nil))))
+        (l/lift lifter m (f mv))
+        (t/tag m nil))))
   (-return [m v]
-    (m/tag m v))
+    (t/tag m v))
   m.p/MonadZero
   (-mzero [m]
-    (m/tag m nil)))
+    (t/tag m nil)))
 
 (defn -nothing
   [m]
-  (m/tag m nil))
+  (t/tag m nil))
 
 (defmacro nothing
   []
@@ -36,6 +38,10 @@
      ~@body))
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.identity :as m.id])
+  (require '[laters.control.maybe :as m.maybe])
+
   (m/mlet m.maybe/maybe-ctx
     [a (m/return 1)
      b (m.maybe/nothing)

@@ -1,7 +1,9 @@
 (ns laters.control.state
   (:require
    [laters.abstract.monad.protocols :as m.p]
-   [laters.abstract.monad :as m]))
+   [laters.abstract.monad :as m]
+   [laters.abstract.tagged :as t]
+   [laters.abstract.lifter :as l]))
 
 (defprotocol MonadState
   (-get-state [m])
@@ -10,28 +12,28 @@
 (deftype State [lifter]
   m.p/Monad
   (-bind [m wmv f]
-    (m/tag
+    (t/tag
      m
      (fn [{st :monad.state/state}]
        (let [{st' :monad.state/state
-              val :monad/val} ((m/lift-untag lifter m wmv)
+              val :monad/val} ((l/lift-untag lifter m wmv)
                                    {:monad.state/state st})]
-         ((m/lift-untag lifter m (f val)) {:monad.state/state st'})))))
+         ((l/lift-untag lifter m (f val)) {:monad.state/state st'})))))
   (-return [m v]
-    (m/tag
+    (t/tag
      m
      (fn [{st :monad.state/state}]
        {:monad.state/state st
         :monad/val v })))
   MonadState
   (-get-state [m]
-    (m/tag
+    (t/tag
      m
      (fn [{st :monad.state/state}]
        {:monad.state/state st
         :monad/val st})))
   (-put-state [m st']
-    (m/tag
+    (t/tag
      m
      (fn [{st :monad.state/state}]
        { :monad.state/state st'
@@ -53,9 +55,12 @@
 
 (defn run-state
   [wmv state]
-  ((m/untag wmv) state))
+  ((t/untag wmv) state))
 
 (comment
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.state :as m.state])
+
   (m.state/run-state
    (m/mlet m.state/state-ctx
      [{foo :foo :as a} (m.state/get-state)

@@ -1,21 +1,6 @@
 (ns laters.abstract.monad
   (:require
-   [laters.abstract.monad.protocols :as p])
-  (:import
-   [clojure.lang Associative]))
-
-(defrecord TaggedMV [ctx mv]
-  p/ITaggedMV
-  (-ctx [_] ctx)
-  (-mv [_] mv))
-
-(defn tag
-  [ctx mv]
-  (TaggedMV. ctx mv))
-
-(defn untag
-  [bmv]
-  (p/-mv bmv))
+   [laters.abstract.monad.protocols :as p]))
 
 (defmacro bind
   ([m mv f]
@@ -28,78 +13,6 @@
    `(p/-return ~m ~v))
   ([v]
    `(p/-return ~'this-monad## ~v)))
-
-(defn ^:private assoc-lift*
-  [lifters m tmv]
-  (if (contains? lifters (p/-ctx tmv))
-    ((get lifters (p/-ctx tmv)) (untag tmv))
-
-    (throw
-     (ex-info
-      "map lifter: no lifter registered"
-      {:from (p/-ctx tmv)
-       :to m
-       :tmv tmv}))))
-
-;; a plain map {<from-ctx> <lifter>} can be used to provide lifters
-;; for a single context...
-(extend Associative
-  p/ILifter
-  {:-lift-untag assoc-lift*
-   :-lift (fn [this m tmv]
-            (tag m (assoc-lift* this m tmv)))})
-
-;; a lifter which has an atom of
-;; {<to-ctx> {<from-ctx> <lifter>}}
-;; permitting bi-directional lifts to
-;; be established e.g. P<->PRW or PRW<->PRWS
-(defrecord AtomicLifter [lifters-a]
-  p/ILifter
-  (-lift-untag [_ m tmv]
-    (assoc-lift* (get @lifters-a m {}) m tmv))
-  (-lift [_ m tmv]
-    (tag m (assoc-lift* (get @lifters-a {}) m tmv)))
-  p/IAtomicLifter
-  (-register [_ to-ctx from-ctx lifter]
-    (swap!
-     lifters-a
-     assoc-in
-     [to-ctx from-ctx]
-     lifter))
-  (-deregister [_ to-ctx from-ctx]
-    (swap!
-     lifters-a
-     update-in
-     to-ctx
-     dissoc
-     from-ctx)))
-
-(defn create-atomic-lifter
-  []
-  (AtomicLifter. (atom {})))
-
-(defn lift-untag
-  "lifts a TaggedMV into Monad m, returning
-   an untagged MV"
-  [lifter m tmv]
-  (cond
-    (= m (p/-ctx tmv))
-    (untag tmv)
-
-    (some? lifter)
-    (p/-lift-untag lifter m tmv)
-
-    :else
-    (throw
-     (ex-info
-      "no lifts"
-      {:from (p/-ctx tmv)
-       :to m
-       :tmv tmv}))))
-
-(defn lift
-  [lifter m tmv]
-  (tag m (lift-untag lifter m tmv)))
 
 (defn guard
   [m v]
