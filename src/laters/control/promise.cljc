@@ -4,6 +4,7 @@
    [laters.abstract.monad :as m]
    [laters.abstract.tagged :as t]
    [laters.abstract.lifter :as l]
+   [laters.abstract.error.protocols :as e.p]
    [laters.control.identity :as m.id]
    [promesa.core :as p]))
 
@@ -14,17 +15,6 @@
      ~@body
      (catch Exception x#
        (p/rejected x#))))
-
-(defprotocol MonadPromise
-  (-reject [m v])
-  (-catch [m handler mv]))
-
-(defmacro catch-reject
-  [m & body]
-  `(try
-     ~@body
-     (catch Exception x#
-       (-reject ~m x#))))
 
 (deftype Promise [lifter]
   m.p/Monad
@@ -38,7 +28,7 @@
           (l/lift-untag lifter m (f v)))))))
   (-return [m v]
     (t/tag m (p/resolved v)))
-  MonadPromise
+  e.p/MonadError
   (-reject [m v]
     (t/tag m (p/rejected v)))
   (-catch [m handler mv]
@@ -51,18 +41,6 @@
           (handler error)
           success))))))
 
-(defmacro reject
-  ([m v]
-   `(-reject ~m ~v))
-  ([v]
-   `(-reject ~'this-monad## ~v)))
-
-(defmacro catch
-  ([m handler mv]
-   `(-catch ~m ~handler (catch-reject ~m ~mv)))
-  ([handler mv]
-   `(-catch ~'this-monad## ~handler (catch-reject ~'this-monad## ~mv))))
-
 (def promise-lifter
   {m.id/identity-ctx (fn [mv]
                        (p/resolved mv))})
@@ -72,8 +50,10 @@
 
 (comment
   (require '[laters.abstract.monad :as m])
+  (require '[laters.abstract.error :as e])
   (require '[laters.control.identity :as m.id])
   (require '[laters.control.promise :as m.pr])
+
 
   (def mv (m/mlet m.pr/promise-ctx
             [a (m/return 2)
@@ -87,13 +67,19 @@
             (m/return (* a b))))
 
   ;; catch
-  (def emv (m.pr/reject m.pr/promise-ctx (ex-info "boo" {:foo 10})))
+  (def emv (e/reject m.pr/promise-ctx (ex-info "boo" {:foo 10})))
   (def cemv
     (m/mlet m.pr/promise-ctx
-      [a (m.pr/catch
+      [a (e/catch
              (fn [e]
                [:error (-> e ex-data)])
              emv)]
       (m/return a)))
 
-  )
+  ;; catch early errors
+  (def cemv
+    (e/catch
+        m.pr/promise-ctx
+        ex-data
+      (m/mlet m.pr/promise-ctx
+        (throw (ex-info "foo" {:foo 20}))))))

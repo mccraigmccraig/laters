@@ -5,6 +5,7 @@
    [laters.abstract.tagged :as t]
    [laters.abstract.lifter :as l]
    [laters.abstract.lifter.protocols :as l.p]
+   [laters.abstract.error.protocols :as e.p]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
@@ -83,7 +84,7 @@
        (p/resolved
         {:monad.writer/output []
          :monad/val v}))))
-  m.pr/MonadPromise
+  e.p/MonadError
   (-reject [m v]
     (t/tag
      m
@@ -197,6 +198,7 @@
 
 (comment
   (require '[laters.abstract.monad :as m])
+  (require '[laters.abstract.error :as e])
   (require '[laters.control.identity :as m.id])
   (require '[laters.control.maybe :as m.maybe])
   (require '[laters.control.reader :as m.reader])
@@ -254,6 +256,6 @@
   (def ce
     (m.prw/run-prw
      (m.prw/prw-let
-      [a (m.pr/catch ex-data emv)]
+      [a (e/catch ex-data emv)]
       (m/return a))
      {:monad.reader/env {:foo 10}})))
