@@ -1,9 +1,10 @@
 (ns laters.control.identity
   (:require
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]))
 
 (deftype Identity [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m mv f]
     (m/lift
      lifter

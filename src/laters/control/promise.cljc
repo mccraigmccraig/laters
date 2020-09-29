@@ -1,5 +1,6 @@
 (ns laters.control.promise
   (:require
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
    [laters.control.identity :as m.id]
    [promesa.core :as p]))
@@ -9,7 +10,7 @@
   (-catch [m handler mv]))
 
 (deftype Promise [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m tmv f]
     (let [mv (m/lift-untag lifter m tmv)]
       (m/tag
@@ -34,8 +35,10 @@
           success))))))
 
 (defmacro reject
-  [v]
-  `(-reject ~'this-monad## ~v))
+  ([ctx v]
+   `(-reject ~ctx ~v))
+  ([v]
+   `(-reject ~'this-monad## ~v)))
 
 (defmacro catch
   [handler mv]
@@ -57,12 +60,12 @@
 
   ;; auto-lifting
   (def mv (m/mlet m.pr/promise-ctx
-            [a (m/-return m.id/identity-ctx 100)
+            [a (m/return m.id/identity-ctx 100)
              b (m/return 3)]
             (m/return (* a b))))
 
   ;; catch
-  (def emv (m.pr/-reject m.pr/promise-ctx (ex-info "boo" {:foo 10})))
+  (def emv (m.pr/reject m.pr/promise-ctx (ex-info "boo" {:foo 10})))
   (def cemv
     (m/mlet m.pr/promise-ctx
       [a (m.pr/catch

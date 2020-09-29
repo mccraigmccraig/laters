@@ -1,10 +1,11 @@
 (ns laters.control.maybe
   (:require
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
    [laters.control.identity :as m.id]))
 
 (deftype Maybe [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m wmv f]
     (let [mv (m/lift-untag lifter m wmv)]
       (if (some? mv)
@@ -12,7 +13,7 @@
         (m/tag m nil))))
   (-return [m v]
     (m/tag m v))
-  m/MonadZero
+  m.p/MonadZero
   (-mzero [m]
     (m/tag m nil)))
 

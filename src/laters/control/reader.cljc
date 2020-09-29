@@ -1,5 +1,6 @@
 (ns laters.control.reader
   (:require
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]))
 
 (defprotocol MonadReader
@@ -7,7 +8,7 @@
   (-local [m f mv]))
 
 (deftype Reader [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m mv f]
     (m/tag
      m
@@ -28,12 +29,16 @@
        ((m/lift-untag lifter m mv) {:monad.reader/env (f env)})))))
 
 (defmacro ask
-  []
-  `(-ask ~'this-monad##))
+  ([m]
+   `(-ask ~m))
+  ([]
+   `(-ask ~'this-monad##)))
 
 (defmacro local
-  [f mv]
-  `(-local ~'this-monad## ~f ~mv))
+  ([m f mv]
+   `(-local ~m ~f ~mv))
+  ([f mv]
+   `(-local ~'this-monad## ~f ~mv)))
 
 (defn -asks
   [m f]
@@ -47,8 +52,10 @@
      ((m/untag (-ask m)) (assoc arg :monad.reader/env (f env))))))
 
 (defmacro asks
-  [f]
-  `(-asks ~'this-monad## ~f))
+  ([m f]
+   `(-asks ~m ~f))
+  ([f]
+   `(-asks ~'this-monad## ~f)))
 
 (def reader-ctx (Reader. nil))
 (defn run-reader
@@ -59,27 +66,27 @@
 
 (comment
 
-  (m/run-reader
+  (m.reader/run-reader
    (m/mlet m.reader/reader-ctx
      [a (m.reader/ask)
       b (m/return 3)]
      (m/return (+ a b)))
    {:monad.reader/env 10})
 
-  (m/run-reader
+  (m.reader/run-reader
    (m/mlet m.reader/reader-ctx
      [a (m.reader/asks :foo)
       b (m/return 3)]
      (m/return (* a b)))
    {:monad.reader/env {:foo 10}})
 
-  (m/run-reader
+  (m.reader/run-reader
    (m/mlet m.reader/reader-ctx
      [a (m.reader/asks :foo)
       b (m.reader/local
          #(assoc % :foo 20)
          (m/mlet m.reader/reader-ctx
-           [b (asks :foo)]
+           [b (m.reader/asks :foo)]
            (m/return b)))]
      (m/return (* a b)))
    {:monad.reader/env {:foo 10}})

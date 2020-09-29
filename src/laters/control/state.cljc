@@ -1,5 +1,6 @@
 (ns laters.control.state
   (:require
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]))
 
 (defprotocol MonadState
@@ -7,7 +8,7 @@
   (-put-state [m st']))
 
 (deftype State [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m wmv f]
     (m/tag
      m
@@ -37,12 +38,16 @@
         :monad/val nil}))))
 
 (defmacro get-state
-  []
-  `(-get-state ~'this-monad##))
+  ([m]
+   `(-get-state ~m))
+  ([]
+   `(-get-state ~'this-monad##)))
 
 (defmacro put-state
-  [st]
-  `(-put-state ~'this-monad## ~st))
+  ([m st]
+   `(-put-state ~m ~st))
+  ([st]
+   `(-put-state ~'this-monad## ~st)))
 
 (def state-ctx (State. nil))
 
@@ -51,7 +56,7 @@
   ((m/untag wmv) state))
 
 (comment
-  (m/run-state
+  (m.state/run-state
    (m/mlet m.state/state-ctx
      [{foo :foo :as a} (m.state/get-state)
       b (m/return 3)

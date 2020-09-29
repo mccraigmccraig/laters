@@ -1,15 +1,11 @@
 (ns laters.abstract.monad
+  (:require
+   [laters.abstract.monad.protocols :as p])
   (:import
    [clojure.lang Associative]))
 
-;; for contexts to wrap their monadic values in
-;; a marker type - and support generic lifts
-(defprotocol ITaggedMV
-  (-ctx [_])
-  (-mv [_]))
-
 (defrecord TaggedMV [ctx mv]
-  ITaggedMV
+  p/ITaggedMV
   (-ctx [_] ctx)
   (-mv [_] mv))
 
@@ -19,63 +15,51 @@
 
 (defn untag
   [bmv]
-  (-mv bmv))
-
-(defprotocol Monad
-  (-bind [m mv f])
-  (-return [m v]))
+  (p/-mv bmv))
 
 (defmacro bind
-  [mv f]
-  `(-bind ~'this-monad## ~mv ~f))
+  ([m mv f]
+   `(p/-bind ~m ~mv ~f))
+  ([mv f]
+   `(p/-bind ~'this-monad## ~mv ~f)))
 
 (defmacro return
   ([m v]
-   `(-return ~m ~v))
+   `(p/-return ~m ~v))
   ([v]
-   `(-return ~'this-monad## ~v)))
-
-(defn bind
-  [m mv f]
-  (-bind m mv f))
-
-(defprotocol ILifter
-  (-lift [_ m tmv])
-  (-lift-untag [_ m tmv]))
+   `(p/-return ~'this-monad## ~v)))
 
 (defn ^:private assoc-lift*
   [lifters m tmv]
-  (if (contains? lifters (-ctx tmv))
-    ((get lifters (-ctx tmv)) (untag tmv))
+  (if (contains? lifters (p/-ctx tmv))
+    ((get lifters (p/-ctx tmv)) (untag tmv))
 
     (throw
      (ex-info
       "map lifter: no lifter registered"
-      {:from (-ctx tmv)
+      {:from (p/-ctx tmv)
        :to m
        :tmv tmv}))))
 
+;; a plain map {<from-ctx> <lifter>} can be used to provide lifters
+;; for a single context...
 (extend Associative
-  ILifter
+  p/ILifter
   {:-lift-untag assoc-lift*
    :-lift (fn [this m tmv]
             (tag m (assoc-lift* this m tmv)))})
-
-(defprotocol IAtomicLifter
-  (-register [_ from to lifter])
-  (-deregister [_ from to]))
 
 ;; a lifter which has an atom of
 ;; {<to-ctx> {<from-ctx> <lifter>}}
 ;; permitting bi-directional lifts to
 ;; be established e.g. P<->PRW or PRW<->PRWS
 (defrecord AtomicLifter [lifters-a]
-  ILifter
+  p/ILifter
   (-lift-untag [_ m tmv]
     (assoc-lift* (get @lifters-a m {}) m tmv))
   (-lift [_ m tmv]
     (tag m (assoc-lift* (get @lifters-a {}) m tmv)))
-  IAtomicLifter
+  p/IAtomicLifter
   (-register [_ to-ctx from-ctx lifter]
     (swap!
      lifters-a
@@ -99,17 +83,17 @@
    an untagged MV"
   [lifter m tmv]
   (cond
-    (= m (-ctx tmv))
+    (= m (p/-ctx tmv))
     (untag tmv)
 
     (some? lifter)
-    (-lift-untag lifter m tmv)
+    (p/-lift-untag lifter m tmv)
 
     :else
     (throw
      (ex-info
       "no lifts"
-      {:from (-ctx tmv)
+      {:from (p/-ctx tmv)
        :to m
        :tmv tmv}))))
 
@@ -117,14 +101,11 @@
   [lifter m tmv]
   (tag m (lift-untag lifter m tmv)))
 
-(defprotocol MonadZero
-  (-mzero [m]))
-
 (defn guard
   [m v]
   (if (some? v)
-    (-return m v)
-    (-mzero m)))
+    (p/-return m v)
+    (p/-mzero m)))
 
 #?(:clj
    (defmacro mlet

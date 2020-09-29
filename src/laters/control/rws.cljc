@@ -1,6 +1,7 @@
 (ns laters.control.rws
   (:require
    [laters.abstract.monad :as m]
+   [laters.abstract.monad.protocols :as m.p]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
@@ -8,7 +9,7 @@
 
 ;; reader+writer+state
 (deftype RWS [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m mv f]
     (m/tag
      m
@@ -121,7 +122,7 @@
 
 (comment
 
-  (m/run-rws
+  (m.rws/run-rws
    (m/mlet m.rws/rws-ctx
      [a (m/return 5)
       _ (m.writer/tell :foo)
@@ -140,7 +141,7 @@
     :monad.state/state {:fip 12}})
 
   ;; auto-lifting
-  (m/run-rws
+  (m.rws/run-rws
    (m/mlet m.rws/rws-ctx
      [a (m/mlet m.id/identity-ctx [a (m/return 10)] (m/return a))
       _ (m.writer/tell :foo)

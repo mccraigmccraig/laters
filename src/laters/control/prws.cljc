@@ -1,6 +1,7 @@
 (ns laters.control.prws
   (:require
    [laters.abstract.monad :as m]
+   [laters.abstract.monad.protocols :as m.p]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
@@ -11,7 +12,7 @@
 
 ;; ({:monad.reader/env r :monad.state/state st})->Promise<{:monad/val v :monad.writer/output w :monad.state/state st}
 (deftype PRWS [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m wmv f]
     (m/tag
      m
@@ -42,7 +43,7 @@
         {:monad.writer/output nil
          :monad.state/state st
          :monad/val v}))))
-  m/MonadZero
+  m.p/MonadZero
   (-mzero [m]
     (m/tag
      m
@@ -157,7 +158,7 @@
 
 (comment
 
-  @(m/run-prws
+  @(m.prws/run-prws
     (m/mlet m.prws/prws-ctx
       [{a :foo} (m.reader/ask)
        b (m.reader/asks :bar)

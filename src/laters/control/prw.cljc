@@ -1,6 +1,7 @@
 (ns laters.control.prw
   (:require
    [clojure.string :as str]
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
@@ -59,7 +60,7 @@
 
 ;; ({:monad.reader/env r})->Promise<{:monad/val v :monad.writer/output w}
 (deftype PRW [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m wmv f]
     (m/tag
      m
@@ -119,7 +120,7 @@
                    :monad/val val})
 
                 success)))))))
-  m/MonadZero
+  m.p/MonadZero
   (-mzero [m]
     (m/tag
      m
@@ -191,7 +192,7 @@
 (def prw-ctx (PRW. prw-lifters))
 
 (doseq [[from-ctx lifter] prw-lifters]
-  (m/-register prw-lifter prw-ctx from-ctx lifter))
+  (m.p/-register prw-lifter prw-ctx from-ctx lifter))
 
 (m/deflets
   {prw-let laters.control.prw/prw-ctx})
@@ -209,6 +210,7 @@
 (comment
   (require '[laters.abstract.monad :as m])
   (require '[laters.control.identity :as m.id])
+  (require '[laters.control.maybe :as m.maybe])
   (require '[laters.control.reader :as m.reader])
   (require '[laters.control.writer :as m.writer])
   (require '[laters.control.promise :as m.pr])

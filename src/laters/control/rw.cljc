@@ -1,5 +1,6 @@
 (ns laters.control.rw
   (:require
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
@@ -7,7 +8,7 @@
 
 ;; reader+writer
 (deftype RW [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m mv f]
     (m/tag
      m

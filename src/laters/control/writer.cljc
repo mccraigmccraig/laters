@@ -1,5 +1,6 @@
 (ns laters.control.writer
   (:require
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m])
   (:import
    [clojure.lang PersistentVector]))
@@ -21,7 +22,7 @@
 ;; fns outside of the protocol to combine wih reader and
 ;; state for RW, RWS and PRW and PRWS
 (deftype Writer [lifter]
-  m/Monad
+  m.p/Monad
   (-bind [m mv f]
     (m/tag
      m
@@ -66,16 +67,22 @@
           :monad/val val})))))
 
 (defmacro tell
-  [v]
-  `(-tell ~'this-monad## ~v))
+  ([m v]
+   `(-tell ~m ~v))
+  ([v]
+   `(-tell ~'this-monad## ~v)))
 
 (defmacro listen
-  [mv]
-  `(-listen ~'this-monad## ~mv))
+  ([m mv]
+   `(-listen ~m ~mv))
+  ([mv]
+   `(-listen ~'this-monad## ~mv)))
 
 (defmacro pass
-  [mv]
-  `(-pass ~'this-monad## ~mv))
+  ([m mv]
+   `(-pass ~m ~mv))
+  ([mv]
+   `(-pass ~'this-monad## ~mv)))
 
 (def writer-ctx (Writer. nil))
 
