@@ -258,4 +258,14 @@
      (m.prw/prw-let
       [a (e/catch ex-data emv)]
       (m/return a))
-     {:monad.reader/env {:foo 10}})))
+     {:monad.reader/env {:foo 10}}))
+
+  ;; catch in first step
+  @(m.prw/run-prw
+    (e/catch
+        m.prw/prw-ctx
+        ex-data
+      (m.prw/prw-let
+       (throw (ex-info "boo" {:foo 200}))))
+    {})
+  )
