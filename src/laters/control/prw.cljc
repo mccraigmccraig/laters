@@ -205,7 +205,7 @@
   (require '[laters.control.promise :as m.pr])
   (require '[laters.control.prw :as m.prw])
 
-    @(m.prw/run-prw
+  @(m.prw/run-prw
     (m.prw/prw-let
       [{a :foo} (m.reader/ask)
        b (m.reader/asks :bar)
@@ -255,8 +255,7 @@
   (def ce
     (m.prw/run-prw
      (m.prw/prw-let
-      [a (e/catch ex-data emv)]
-      (m/return a))
+      (e/catch ex-data emv))
      {:monad.reader/env {:foo 10}}))
 
   ;; catch in first step
