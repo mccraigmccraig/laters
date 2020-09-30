@@ -92,6 +92,31 @@
   [mv]
   ((t/untag mv) nil))
 
+
+(comment
+
+  ;; the code that's written
+  (defwfn fname
+    [args]
+    [a b]
+    (m/return a b))
+
+  ;; the macro produces an fn and a wrapper macro
+
+  ;; the fn
+  (defn -fname
+    [ctx args]
+    (m/mlet ctx
+      [a b]
+      (m/return a b)))
+
+  ;; the wrapper macro just supplies the monad context arg
+  (defmacro fname
+    [args]
+    `(-fname ~'this-monad## ~@args))
+  )
+
+
 (comment
   (require '[laters.abstract.monad :as m])
   (require '[laters.control.writer :as m.writer])
