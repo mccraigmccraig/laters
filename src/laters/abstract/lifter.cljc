@@ -51,6 +51,15 @@
      dissoc
      from-ctx)))
 
+(defn register
+  [lifter to-ctx from-ctx lifter-fn]
+  (p/-register lifter to-ctx from-ctx lifter-fn))
+
+(defn register-all
+  [lifter to-ctx from-lifter-map]
+  (doseq [[from-ctx lifter-fn] from-lifter-map]
+    (p/-register lifter to-ctx from-ctx lifter-fn)))
+
 (defn create-atomic-lifter
   []
   (AtomicLifter. (atom {})))

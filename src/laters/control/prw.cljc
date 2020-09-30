@@ -184,10 +184,9 @@
 
 (def prw-lifter (l/create-atomic-lifter))
 
-(def prw-ctx (PRW. prw-lifters))
+(def prw-ctx (PRW. prw-lifter))
 
-(doseq [[from-ctx lifter] prw-lifters]
-  (l.p/-register prw-lifter prw-ctx from-ctx lifter))
+(l/register-all prw-lifter prw-ctx prw-lifters)
 
 (m/deflets
   {prw-let laters.control.prw/prw-ctx})
@@ -206,7 +205,7 @@
   (require '[laters.control.promise :as m.pr])
   (require '[laters.control.prw :as m.prw])
 
-  @(m.prw/run-prw
+    @(m.prw/run-prw
     (m.prw/prw-let
       [{a :foo} (m.reader/ask)
        b (m.reader/asks :bar)
