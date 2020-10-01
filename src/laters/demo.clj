@@ -76,12 +76,12 @@
   [f1 f2]
   (m.prw/run-prw
    (prw-let
-     (m.e/catch
+    (m.e/catch
+        (stuff)
          (fn [e]
            (m/mlet promesa-prw-ctx
              [_ (m.w/tell [:error (.getMessage e)])]
-             (m/return [:recovered])))
-         (stuff)))
+             (m/return [:recovered])))))
    {:monad.reader/env {:f1 f1 :f2 f2}}))
 
 (comment
