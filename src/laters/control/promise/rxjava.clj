@@ -14,15 +14,8 @@
       ss))
   (-rejected [ctx err]
     (let [ss (SingleSubject/create)]
-      (.onError err)
+      (.onError ss err)
       ss)))
-
-(defn ss-then
-  [p f]
-  (.flatMap
-   p
-   (reify Function
-     (apply [_ v] (f v)))))
 
 (defn ss-flatten
   [out p]
@@ -34,9 +27,28 @@
      (reify SingleObserver
        (onSubscribe [_ _])
        (onError [_ err]
+         (prn "flatten error:" err)
          (.onError out err))
        (onSuccess [_ success]
+         (prn "flatten success:" success)
          (.onSuccess out success))))))
+
+(defn ss-then
+  [p f]
+  (let [ss (SingleSubject/create)]
+    (.subscribeWith
+     p
+     (reify SingleObserver
+       (onSubscribe [_ _])
+       (onError [_ err]
+         (.onError ss err))
+       (onSuccess [_ success]
+         (prn "then success:" success)
+         (try
+           (ss-flatten ss (f success))
+           (catch Exception x
+             (.onError ss x))))))
+    ss))
 
 (defn ss-handle
   [p f]
@@ -46,11 +58,13 @@
      (reify SingleObserver
        (onSubscribe [_ _])
        (onError [_ err]
+         (prn "handle error:" err)
          (try
-           (ss-flatten ss (f err))
+           (ss-flatten ss (f nil err))
            (catch Exception x
              (.onError ss x))))
        (onSuccess [_ success]
+         (prn "handle success:" success)
          (try
            (ss-flatten ss (f success nil))
            (catch Exception x
