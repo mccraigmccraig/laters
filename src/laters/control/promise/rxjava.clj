@@ -19,10 +19,24 @@
 
 (defn ss-then
   [p f]
-  (.map
+  (.flatMap
    p
    (reify Function
      (apply [_ v] (f v)))))
+
+(defn ss-flatten
+  [out p]
+  (if (not (instance? Single p))
+    (.onSuccess out p)
+
+    (.subscribeWith
+     p
+     (reify SingleObserver
+       (onSubscribe [_ _])
+       (onError [_ err]
+         (.onError out err))
+       (onSuccess [_ success]
+         (.onSuccess out success))))))
 
 (defn ss-handle
   [p f]
@@ -32,9 +46,15 @@
      (reify SingleObserver
        (onSubscribe [_ _])
        (onError [_ err]
-         (f nil err))
+         (try
+           (ss-flatten ss (f err))
+           (catch Exception x
+             (.onError ss x))))
        (onSuccess [_ success]
-         (f success nil))))
+         (try
+           (ss-flatten ss (f success nil))
+           (catch Exception x
+             (.onError ss x))))))
     ss))
 
 (extend Single
@@ -42,4 +62,4 @@
   {:-then ss-then
    :-handle ss-handle})
 
-(def singlesubject-Factory (SingleSubjectPromiseFactory.))
+(def singlesubject-factory (SingleSubjectPromiseFactory.))
