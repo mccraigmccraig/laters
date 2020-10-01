@@ -100,14 +100,14 @@
 
   ;; ;;;;;;;;;;;;; a failure
 
-  @(laters.demo/run-recover "foo" "bar")
+  @(laters.demo/run "foo" "bar")
 
   =>
 
   ;; BOOM! with ex-data
 
   {:type :laters.control.prw/error
-   :monad/error <the-exception>
+   :monad/error <the-original-exception>
    :monad.writer/output Atom<[[:write {:f "foo"}]
                               [:read {:f "foo"}]
                               [:read {:f "bar"}]]>}
