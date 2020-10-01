@@ -128,6 +128,12 @@
        (p/rejected
         promise-impl
         (prws-error error st)))))
+
+  ;; catches an errored PRWS mv
+  ;;  - outputs any captured output
+  ;;  - calls (handler error) to generate a new mv
+  ;;  - calls that with the environment
+  ;;  - returns new state, output and value
   (-catch [m handler mv]
     (t/tag
      m
@@ -141,16 +147,35 @@
                                       :monad.state/state st}))
         (fn [success error]
           (if (some? error)
-            (let [error (unwrap-error error)
-                  {output-a :monad.writer/output
-                   state :monad.state/state
-                   cause :monad/error} (ex-data error)
 
-                  output (some-> output-a deref)
-                  val (handler cause)]
-              {:monad.writer/output output
-               :monad.state/state state
-               :monad/val val})
+            (let [error (unwrap-error error)
+                  {error-output-a :monad.writer/output
+                   error-st :monad.state/state
+                   cause :monad/error} (ex-data error)
+                  error-output (some-> error-output-a deref)
+
+                  r-mv (handler cause)]
+
+              (p/handle
+               (p/pcatch
+                promise-impl
+                ((l/lift-untag lifter m r-mv)
+                 {:monad.reader/env env
+                  :monad.state/state error-st}))
+
+               (fn [{r-w :monad.writer/output
+                    r-st :monad.state/state
+                    r-v :monad/val
+                    :as r-success}
+                   r-error]
+                 (if (some? r-error)
+                   (p/rejected promise-impl concat-error r-error error-output)
+
+                   (p/resolved
+                    promise-impl
+                    {:monad.writer/output ((fnil into []) error-output r-w)
+                     :monad.state/state r-st
+                     :monad/val r-v})))))
 
             success))))))
 
@@ -325,10 +350,10 @@
   ;; catch
 
   @(m.prws/run-prws
-    (e/catch
-        m.prws/prws-ctx
-        ex-data
-      (m.prws/prws-let
+    (m.prws/prws-let
+     (e/catch
+         m.prws/prws-ctx
+         #(m/return (ex-data %))
        (throw (ex-info "boo" {:foo 100}))))
     {})
 
@@ -350,7 +375,12 @@
   (def ce
     (m.prws/run-prws
      (m.prws/prws-let
-      [a (e/catch ex-data emv)]
+      [a (e/catch
+             (fn [e]
+               (m.prws/prws-let
+                [_ (m.writer/tell [:error (.getMessage e)])]
+                (m/return [:recovered (ex-data e)])))
+             emv)]
       (m/return a))
      {:monad.reader/env {:foo 10}
       :monad.state/state {:blah :blah}}))

@@ -97,7 +97,9 @@
 
   ;; catches an errored PRW mv
   ;;  - outputs any captured output
-  ;;  - returns a val with (handler original-error)
+  ;;  - calls (handler error) to generate a new mv
+  ;;  - calls that with the environment
+  ;;  - returns new output and value
   (-catch [m handler mv]
     (t/tag
      m
@@ -108,14 +110,27 @@
           (if (some? error)
 
             (let [error (unwrap-error error)
-                  {output-a :monad.writer/output
+                  {error-output-a :monad.writer/output
                    cause :monad/error} (ex-data error)
+                  error-output (some-> error-output-a deref)
 
-                  output (some-> output-a deref)
-                  val (handler cause)]
+                  r-mv (handler cause)]
 
-              {:monad.writer/output output
-               :monad/val val})
+              (p/handle
+               (p/pcatch promise-impl
+                         ((l/lift-untag lifter m r-mv)
+                          {:monad.reader/env env}))
+
+               (fn [{r-w :monad.writer/output
+                    r-v :monad/val
+                    :as r-success}
+                   r-error]
+                 (if (some? r-error)
+                   (p/rejected promise-impl concat-error r-error error-output)
+                   (p/resolved
+                    promise-impl
+                    {:monad.writer/output ((fnil into []) error-output r-w)
+                     :monad/val r-v})))))
 
             success))))))
   m.p/MonadZero
@@ -251,14 +266,14 @@
 
   ;; catch
 
-  (def emv
-    (m.prw/prw-let
-     [a (m.reader/asks :foo)
-      _ (m.writer/tell [:foo a])
-      b (m/return 5)
-      _ (m.writer/tell :bar)
-      _ (throw (ex-info "wah" {:a a :b b}))]
-     (m/return [a b])))
+    (def emv
+      (m.prw/prw-let
+       [a (m.reader/asks :foo)
+        _ (m.writer/tell [:foo a])
+        b (m/return 5)
+        _ (m.writer/tell :bar)
+        _ (throw (ex-info "wah" {:a a :b b}))]
+       (m/return [a b])))
 
   (def er
     (m.prw/run-prw
@@ -268,16 +283,19 @@
   (def ce
     (m.prw/run-prw
      (m.prw/prw-let
-      (e/catch ex-data emv))
+      (e/catch #(m/return (ex-data %)) emv))
      {:monad.reader/env {:foo 10}}))
 
   ;; catch in first step
   @(m.prw/run-prw
-    (e/catch
-        m.prw/prw-ctx
-        ex-data
-      (m.prw/prw-let
-       (throw (ex-info "boo" {:foo 200}))))
+    (m.prw/prw-let
+     (e/catch
+         (fn [e]
+           (m.prw/prw-let
+            [_ (m.writer/tell [:error (.getMessage e)])]
+            (m/return (ex-data e))))
+
+         (throw (ex-info "boo" {:foo 200}))))
     {})
 
   ;; RxJava Single-based promises
@@ -299,8 +317,13 @@
   (def ce
     (m.prw/run-prw
      (m/mlet prw-ctx
-       (e/catch ex-data emv))
+       (e/catch
+           (fn [e]
+             (m/mlet prw-ctx
+               [_ (m.writer/tell [:error (.getMessage e)])]
+               (m/return (ex-data e))))
+           emv))
      {:monad.reader/env {:foo 10}}))
 
-  (m.pr/inspect ce)
+  (p/inspect ce)
   )
