@@ -160,7 +160,7 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/chain
+       (m.pr/then
         promise-impl
         ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
@@ -172,7 +172,7 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/chain
+       (m.pr/then
         promise-impl
         ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
@@ -190,7 +190,7 @@
                           {:monad.writer/output nil :monad/val mv})))
    m.pr/promise-ctx (fn [mv]
                       (fn [{r :monad.reader/env}]
-                        (m.pr/chain
+                        (m.pr/then
                          promise-impl
                          mv
                          (fn [v]

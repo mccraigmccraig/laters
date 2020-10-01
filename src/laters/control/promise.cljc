@@ -17,9 +17,9 @@
   [ctx err]
   (pr.p/-rejected ctx err))
 
-(defn chain
-  [ctx p & fs]
-  (pr.p/-chain ctx p fs))
+(defn then
+  [ctx p f]
+  (pr.p/-then ctx p f))
 
 (defn handle
   [ctx p f]
@@ -39,7 +39,7 @@
     (let [mv (l/lift-untag lifter m tmv)]
       (t/tag
        m
-       (chain
+       (then
         promise-impl
         mv
         (fn [v]

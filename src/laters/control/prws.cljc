@@ -204,7 +204,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/chain
+       (m.pr/then
         promise-impl
 
         ((l/lift-untag lifter m mv) {:monad.reader/env env
@@ -222,7 +222,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/chain
+       (m.pr/then
         promise-impl
 
         ((l/lift-untag lifter m mv) {:monad.reader/env env
@@ -271,7 +271,7 @@
    m.pr/promise-ctx (fn [mv]
                       (fn [{r :monad.reader/env
                            st :monad.state/state}]
-                        (m.pr/chain
+                        (m.pr/then
                          promise-impl
                          mv
                          (fn [v]
