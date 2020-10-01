@@ -79,7 +79,7 @@
     (m.e/catch
         (stuff)
          (fn [e]
-           (m/mlet promesa-prw-ctx
+           (prw-let
              [_ (m.w/tell [:error (.getMessage e)])]
              (m/return [:recovered])))))
    {:monad.reader/env {:f1 f1 :f2 f2}}))
