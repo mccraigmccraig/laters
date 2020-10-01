@@ -51,6 +51,7 @@
     (m/return contents)))
 
 (defn stuff
+  "get the files, :f1 and :f2, to read and write from the environment"
   []
   (m/mlet promesa-prw-ctx
     [{f1 :f1
@@ -61,12 +62,14 @@
     (m/return [:concatenated (str txt1 "-" txt2)])))
 
 (defn run
+  "run without any error recovery"
   [f1 f2]
   (m.prw/run-prw
    (stuff)
    {:monad.reader/env {:f1 f1 :f2 f2}}))
 
 (defn run-recover
+  "run and log and recover any errors"
   [f1 f2]
   (m.prw/run-prw
    (m/mlet promesa-prw-ctx
