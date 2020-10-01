@@ -1,6 +1,7 @@
 (ns laters.concurrency.promise.rxjava
   (:require
-   [laters.concurrency.promise.protocols :as p])
+   [laters.concurrency.promise.protocols :as p]
+   [promesa.core :as promesa])
   (:import
    [io.reactivex.subjects SingleSubject]
    [io.reactivex Single SingleObserver]))
@@ -61,9 +62,24 @@
              (.onError ss x))))))
     ss))
 
+(defn ss-deref
+  [p]
+  (let [pp (promesa/deferred)]
+    (.subscribeWith
+     p
+     (reify SingleObserver
+       (onSubscribe [_ _])
+       (onError [_ err]
+         (promesa/reject! pp err))
+       (onSuccess [_ success]
+         (promesa/resolve! pp success))))
+
+    (deref pp)))
+
 (extend Single
   p/IPromise
   {:-then ss-then
-   :-handle ss-handle})
+   :-handle ss-handle
+   :-deref ss-deref})
 
 (def factory (SingleSubjectPromiseFactory.))

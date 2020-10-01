@@ -16,6 +16,8 @@
 (extend CompletableFuture
   p/IPromise
   {:-then promesa/then
-   :-handle promesa/handle})
+   :-handle promesa/handle
+   #?@(:clj [:-deref clojure.core/deref])
+   })
 
 (def factory (PromesaPromiseFactory.))

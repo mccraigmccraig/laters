@@ -6,4 +6,5 @@
 
 (defprotocol IPromise
   (-then [p f])
-  (-handle [p f]))
+  (-handle [p f])
+  #?(:clj (-deref [p])))

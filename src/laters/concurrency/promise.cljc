@@ -1,4 +1,5 @@
 (ns laters.concurrency.promise
+  (:refer-clojure :exclude [deref])
   (:require
    [laters.concurrency.promise.protocols :as pr.p]))
 
@@ -24,6 +25,11 @@
                     (if (some? e)
                       (prn "ERROR" e)
                       (prn "SUCCESS" s)))))
+
+#?(:clj
+   (defn deref
+     [p]
+     (pr.p/-deref p)))
 
 (defmacro pcatch
   "catch any exception and return as a rejected promise"
