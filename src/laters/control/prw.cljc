@@ -215,6 +215,7 @@
   (require '[laters.control.writer :as m.writer])
   (require '[laters.control.promise :as m.pr])
   (require '[laters.control.prw :as m.prw])
+  (require '[laters.control.promise.rxjava :as rxjava])
 
   @(m.prw/run-prw
     (m.prw/prw-let
@@ -280,7 +281,7 @@
 
   ;; RxJava promises
 
-  (def prw-ctx (m.prw/make-prw-ctx laters.control.promise.rxjava/singlesubject-factory {}))
+  (def prw-ctx (m.prw/make-prw-ctx rxjava/singlesubject-factory {}))
 
   (def emv
     (m/mlet prw-ctx
