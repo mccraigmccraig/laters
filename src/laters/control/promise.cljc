@@ -6,47 +6,73 @@
    [laters.abstract.lifter :as l]
    [laters.abstract.error.protocols :as e.p]
    [laters.control.identity :as m.id]
-   [promesa.core :as p]))
+   [laters.control.promise.protocols :as pr.p]
+   [laters.control.promise.promesa :as promesa]))
+
+(defn resolved
+  [ctx v]
+  (pr.p/-resolved ctx v))
+
+(defn rejected
+  [ctx err]
+  (pr.p/-rejected ctx err))
+
+(defn chain
+  [ctx p & fs]
+  (pr.p/-chain ctx p fs))
+
+(defn handle
+  [ctx p f]
+  (pr.p/-handle ctx p f))
 
 (defmacro pcatch
   "catch any exception and return as a rejected promise"
-  [& body]
+  [promise-impl & body]
   `(try
      ~@body
      (catch Exception x#
-       (p/rejected x#))))
+       (rejected ~promise-impl x#))))
 
-(deftype Promise [lifter]
+(deftype Promise [promise-impl lifter]
   m.p/Monad
   (-bind [m tmv f]
     (let [mv (l/lift-untag lifter m tmv)]
       (t/tag
        m
-       (p/chain
+       (chain
+        promise-impl
         mv
         (fn [v]
           (l/lift-untag lifter m (f v)))))))
   (-return [m v]
-    (t/tag m (p/resolved v)))
+    (t/tag m (resolved promise-impl v)))
   e.p/MonadError
   (-reject [m v]
-    (t/tag m (p/rejected v)))
+    (t/tag m (rejected promise-impl v)))
   (-catch [m handler mv]
     (t/tag
      m
-     (p/handle
+     (handle
+      promise-impl
       (l/lift-untag lifter m mv)
       (fn [success error]
         (if (some? error)
           (handler error)
           success))))))
 
-(def promise-lifter
+(defn make-promise-lifter
+  [promise-impl]
   {m.id/identity-ctx (fn [mv]
-                       (p/resolved mv))})
+                       (resolved
+                        promise-impl
+                        mv))})
 
-(def promise-ctx
-  (Promise. promise-lifter))
+(defn make-promise-ctx
+  [promise-impl lifter]
+  (Promise. promise-impl lifter))
+
+(def promise-lifter (make-promise-lifter promesa/promesa-promise))
+(def promise-ctx (make-promise-ctx promesa/promesa-promise promise-lifter))
 
 (comment
   (require '[laters.abstract.monad :as m])

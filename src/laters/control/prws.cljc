@@ -4,14 +4,13 @@
    [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.tagged :as t]
    [laters.abstract.lifter :as l]
-   [laters.abstract.lifter.protocols :as l.p]
    [laters.abstract.error.protocols :as e.p]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
    [laters.control.state :as m.st]
    [laters.control.promise :as m.pr]
-   [promesa.core :as p])
+   [laters.control.promise.promesa :as promesa])
   (:import
    [java.util.concurrent ExecutionException CompletionException]
    [clojure.lang ExceptionInfo]
@@ -58,53 +57,66 @@
       (prws-error error prior-output prior-state))))
 
 ;; ({:monad.reader/env r :monad.state/state st})->Promise<{:monad/val v :monad.writer/output w :monad.state/state st}
-(deftype PRWS [lifter]
+(deftype PRWS [promise-impl lifter]
   m.p/Monad
   (-bind [m wmv f]
     (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (-> (m.pr/pcatch ((l/lift-untag lifter m wmv) {:monad.reader/env env
-                                                      :monad.state/state st}))
-           (p/handle
-            (fn [{w :monad.writer/output
-                 st' :monad.state/state
-                 v :monad/val
-                 :as success}
-                error]
-              (if (some? error)
-                (do
-                  (p/rejected
-                   (concat-error error [] st)))
+       (m.pr/handle
+        promise-impl
 
-                (do
-                  (p/handle
-                   (m.pr/pcatch ((l/lift-untag lifter m (f v))
-                                 {:monad.reader/env env
-                                  :monad.state/state st'}))
+        (m.pr/pcatch
+         promise-impl
+         ((l/lift-untag lifter m wmv) {:monad.reader/env env
+                                       :monad.state/state st}))
 
-                   (fn [{w' :monad.writer/output
-                        st'' :monad.state/state
-                        v' :monad/val
-                        :as success}
-                       error]
-                     (if (some? error)
+        (fn [{w :monad.writer/output
+             st' :monad.state/state
+             v :monad/val
+             :as success}
+            error]
+          (if (some? error)
+            (do
+              (m.pr/rejected
+               promise-impl
+               (concat-error error [] st)))
 
-                       (do
-                         (p/rejected
-                          (concat-error error w st')))
-                       (do
-                         (p/resolved
-                          {:monad.writer/output ((fnil into []) w w')
-                           :monad.state/state st''
-                           :monad/val v'})))))))))))))
+            (do
+              (m.pr/handle
+               promise-impl
+
+               (m.pr/pcatch
+                promise-impl
+                ((l/lift-untag lifter m (f v))
+                 {:monad.reader/env env
+                  :monad.state/state st'}))
+
+               (fn [{w' :monad.writer/output
+                    st'' :monad.state/state
+                    v' :monad/val
+                    :as success}
+                   error]
+                 (if (some? error)
+
+                   (do
+                     (m.pr/rejected
+                      promise-impl
+                      (concat-error error w st')))
+                   (do
+                     (m.pr/resolved
+                      promise-impl
+                      {:monad.writer/output ((fnil into []) w w')
+                       :monad.state/state st''
+                       :monad/val v'}))))))))))))
   (-return [m v]
     (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (p/resolved
+       (m.pr/resolved
+        promise-impl
         {:monad.writer/output nil
          :monad.state/state st
          :monad/val v}))))
@@ -115,30 +127,35 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (p/rejected
+       (m.pr/rejected
+        promise-impl
         (prws-error error st)))))
   (-catch [m handler mv]
     (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (-> (m.pr/pcatch ((l/lift-untag lifter m mv) {:monad.reader/env env
-                                                     :monad.state/state st}))
-           (p/handle
-            (fn [success error]
-              (if (some? error)
-                (let [error (unwrap-error error)
-                      {output-a :monad.writer/output
-                       state :monad.state/state
-                       cause :monad/error} (ex-data error)
+       (m.pr/handle
+        promise-impl
 
-                      output (some-> output-a deref)
-                      val (handler cause)]
-                  {:monad.writer/output output
-                   :monad.state/state state
-                   :monad/val val})
+        (m.pr/pcatch
+         promise-impl
+         ((l/lift-untag lifter m mv) {:monad.reader/env env
+                                      :monad.state/state st}))
+        (fn [success error]
+          (if (some? error)
+            (let [error (unwrap-error error)
+                  {output-a :monad.writer/output
+                   state :monad.state/state
+                   cause :monad/error} (ex-data error)
 
-                success)))))))
+                  output (some-> output-a deref)
+                  val (handler cause)]
+              {:monad.writer/output output
+               :monad.state/state state
+               :monad/val val})
+
+            success))))))
 
 
   m.p/MonadZero
@@ -147,7 +164,8 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (p/rejected
+       (m.pr/rejected
+        promise-impl
         (ex-info
          ":mopr.control.monad/mzero"
          {:monad.writer/output [::mzero]
@@ -160,7 +178,8 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (p/resolved
+       (m.pr/resolved
+        promise-impl
         {:monad.writer/output nil
          :monad.state/state st
          :monad/val env}))))
@@ -177,16 +196,20 @@
     (t/tag
      m
      (fn [{r :monad.reader/env st :monad.state/state}]
-       (p/resolved
+       (m.pr/resolved
+        promise-impl
         {:monad.writer/output [v] :monad.state/state st :monad/val nil}))))
   (-listen [m mv]
     (t/tag
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (p/chain
+       (m.pr/chain
+        promise-impl
+
         ((l/lift-untag lifter m mv) {:monad.reader/env env
                                      :monad.state/state st})
+
         (fn [{w :monad.writer/output
              st' :monad.state/state
              v :monad/val
@@ -199,9 +222,12 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (p/chain
+       (m.pr/chain
+        promise-impl
+
         ((l/lift-untag lifter m mv) {:monad.reader/env env
                                      :monad.state/state st})
+
         (fn [{w :monad.writer/output
              st' :monad.state/state
              pass-val :monad/val}]
@@ -216,7 +242,8 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (p/resolved
+       (m.pr/resolved
+        promise-impl
         {:monad.writer/output nil
          :monad.state/state st
          :monad/val st}))))
@@ -225,34 +252,42 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (p/resolved
+       (m.pr/resolved
+        promise-impl
         {:monad.writer/output nil
          :monad.state/state st'
          :monad/val nil})))))
 
-(def prws-lifters
+(defn prws-lifters
+  [promise-impl]
   {m.id/identity-ctx (fn [mv]
                        (fn [{r :monad.reader/env
                             st :monad.state/state}]
-                         (p/resolved
+                         (m.pr/resolved
+                          promise-impl
                           {:monad.writer/output nil
                            :monad.state/state st
                            :monad/val mv})))
    m.pr/promise-ctx (fn [mv]
                       (fn [{r :monad.reader/env
                            st :monad.state/state}]
-                        (p/chain
+                        (m.pr/chain
+                         promise-impl
                          mv
                          (fn [v]
                            {:monad.writer/output nil
                             :monad.state/state st
                             :monad/val v}))))})
 
+(defn make-prws-ctx
+  [promise-impl lifter]
+  (PRWS. promise-impl lifter))
+
 (def prws-lifter (l/create-atomic-lifter))
 
-(def prws-ctx (PRWS. prws-lifter))
+(def prws-ctx (make-prws-ctx promesa/promesa-promise prws-lifter))
 
-(l/register-all prws-lifter prws-ctx prws-lifters)
+(l/register-all prws-lifter prws-ctx (prws-lifters promesa/promesa-promise))
 
 (m/deflets
   {prws-let laters.control.prws/prws-ctx})
@@ -268,6 +303,7 @@
   (require '[laters.control.maybe :as m.maybe])
   (require '[laters.control.reader :as m.reader])
   (require '[laters.control.writer :as m.writer])
+  (require '[laters.control.state :as m.state])
   (require '[laters.control.promise :as m.pr])
   (require '[laters.control.prws :as m.prws])
 

@@ -4,13 +4,12 @@
    [laters.abstract.monad :as m]
    [laters.abstract.tagged :as t]
    [laters.abstract.lifter :as l]
-   [laters.abstract.lifter.protocols :as l.p]
    [laters.abstract.error.protocols :as e.p]
    [laters.control.identity :as m.id]
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
    [laters.control.promise :as m.pr]
-   [promesa.core :as p])
+   [laters.control.promise.promesa :as promesa])
   (:import
    [java.util.concurrent ExecutionException CompletionException]
    [clojure.lang ExceptionInfo]
@@ -54,34 +53,39 @@
       (prw-error error prior-output))))
 
 ;; ({:monad.reader/env r})->Promise<{:monad/val v :monad.writer/output w}
-(deftype PRW [lifter]
+(deftype PRW [promise-impl lifter]
   m.p/Monad
   (-bind [m wmv f]
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (-> (m.pr/pcatch ((l/lift-untag lifter m wmv) {:monad.reader/env env}))
-           (p/handle
-            (fn [{w :monad.writer/output
-                 v :monad/val :as success}
-                error]
-              (if (some? error)
-                (p/rejected (concat-error error []))
-                (p/handle
-                 (m.pr/pcatch ((l/lift-untag lifter m (f v)) {:monad.reader/env env}))
-                 (fn [{w' :monad.writer/output
-                      v' :monad/val :as success}
-                     error]
-                   (if (some? error)
-                     (p/rejected (concat-error error w))
-                     (p/resolved
-                      {:monad.writer/output ((fnil into []) w w')
-                       :monad/val v'})))))))))))
+       (m.pr/handle
+        promise-impl
+        (m.pr/pcatch promise-impl ((l/lift-untag lifter m wmv) {:monad.reader/env env}))
+        (fn [{w :monad.writer/output
+             v :monad/val
+             :as success}
+            error]
+          (if (some? error)
+            (m.pr/rejected promise-impl (concat-error error []))
+            (m.pr/handle
+             promise-impl
+             (m.pr/pcatch promise-impl ((l/lift-untag lifter m (f v)) {:monad.reader/env env}))
+             (fn [{w' :monad.writer/output
+                  v' :monad/val :as success}
+                 error]
+               (if (some? error)
+                 (m.pr/rejected promise-impl (concat-error error w))
+                 (m.pr/resolved
+                  promise-impl
+                  {:monad.writer/output ((fnil into []) w w')
+                   :monad/val v'}))))))))))
   (-return [m v]
     (t/tag
      m
      (fn [_]
-       (p/resolved
+       (m.pr/resolved
+        promise-impl
         {:monad.writer/output []
          :monad/val v}))))
   e.p/MonadError
@@ -89,7 +93,8 @@
     (t/tag
      m
      (fn [_]
-       (p/rejected
+       (m.pr/rejected
+        promise-impl
         (prw-error v)))))
 
   ;; catches an errored PRW mv
@@ -99,28 +104,30 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (-> (m.pr/pcatch ((l/lift-untag lifter m mv) {:monad.reader/env env}))
-           (p/handle
-            (fn [success error]
-              (if (some? error)
+       (m.pr/handle
+        promise-impl
+        (m.pr/pcatch promise-impl ((l/lift-untag lifter m mv) {:monad.reader/env env}))
+        (fn [success error]
+          (if (some? error)
 
-                (let [error (unwrap-error error)
-                      {output-a :monad.writer/output
-                       cause :monad/error} (ex-data error)
+            (let [error (unwrap-error error)
+                  {output-a :monad.writer/output
+                   cause :monad/error} (ex-data error)
 
-                      output (some-> output-a deref)
-                      val (handler cause)]
+                  output (some-> output-a deref)
+                  val (handler cause)]
 
-                  {:monad.writer/output output
-                   :monad/val val})
+              {:monad.writer/output output
+               :monad/val val})
 
-                success)))))))
+            success))))))
   m.p/MonadZero
   (-mzero [m]
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (p/rejected
+       (m.pr/rejected
+        promise-impl
         (ex-info
          ":mopr.control.monad/mzero"
          {:monad.writer/output [::mzero]
@@ -130,7 +137,8 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (p/resolved
+       (m.pr/resolved
+        promise-impl
         {:monad.writer/output nil
          :monad/val env}))))
   (-local [m f mv]
@@ -145,13 +153,15 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (p/resolved
+       (m.pr/resolved
+        promise-impl
         {:monad.writer/output [v] :monad/val nil}))))
   (-listen [m mv]
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (p/chain
+       (m.pr/chain
+        promise-impl
         ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
              v :monad/val
@@ -162,7 +172,8 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (p/chain
+       (m.pr/chain
+        promise-impl
         ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
              pass-val :monad/val}]
@@ -170,23 +181,29 @@
             {:monad.writer/output (f w)
              :monad/val val})))))))
 
-(def prw-lifters
+(defn prw-lifters
+  [promise-impl]
   {m.id/identity-ctx (fn [mv]
                        (fn [{r :monad.reader/env}]
-                         (p/resolved
+                         (m.pr/resolved
+                          promise-impl
                           {:monad.writer/output nil :monad/val mv})))
    m.pr/promise-ctx (fn [mv]
                       (fn [{r :monad.reader/env}]
-                        (p/chain
+                        (m.pr/chain
+                         promise-impl
                          mv
                          (fn [v]
                            {:monad.writer/output nil :monad/val v}))))})
 
+(defn make-prw-ctx
+  [promise-impl lifter]
+  (PRW. promise-impl lifter))
+
 (def prw-lifter (l/create-atomic-lifter))
+(def prw-ctx (make-prw-ctx promesa/promesa-promise prw-lifter))
 
-(def prw-ctx (PRW. prw-lifter))
-
-(l/register-all prw-lifter prw-ctx prw-lifters)
+(l/register-all prw-lifter prw-ctx (prw-lifters promesa/promesa-promise))
 
 (m/deflets
   {prw-let laters.control.prw/prw-ctx})
@@ -207,33 +224,33 @@
 
   @(m.prw/run-prw
     (m.prw/prw-let
-      [{a :foo} (m.reader/ask)
-       b (m.reader/asks :bar)
-       c (m/return (+ a b))
-       _ (m.writer/tell c)
-       d (m.reader/local
-          #(assoc % :foo 20)
-          (m/mlet m.prw/prw-ctx
-            [{a :foo b :bar} (m.reader/ask)]
-            (m/return (+ a b))))
-       {listen-out :monad.writer/output
-        e :monad/val} (m.writer/listen
-                       (m/mlet m.prw/prw-ctx
-                         [_ (m.writer/tell :foofoo)
-                          _ (m.writer/tell :barbar)]
-                         (m/return :blah)))
-       _ (m.writer/tell listen-out)
-       f (m.writer/pass
-          (m/mlet m.prw/prw-ctx
-            [_ (m.writer/tell :one)
-             _ (m.writer/tell :two)
-             _ (m.writer/tell :one)]
-            (m/return [:passed (fn [out] (filter #(= :one %) out))])))
-       g (m/mlet m.pr/promise-ctx
-           [a (m/return 100)
-            b (m/return 100)]
-           (m/return (* a a)))]
-      (m/return [a b c d e f g]))
+     [{a :foo} (m.reader/ask)
+      b (m.reader/asks :bar)
+      c (m/return (+ a b))
+      _ (m.writer/tell c)
+      d (m.reader/local
+         #(assoc % :foo 20)
+         (m/mlet m.prw/prw-ctx
+           [{a :foo b :bar} (m.reader/ask)]
+           (m/return (+ a b))))
+      {listen-out :monad.writer/output
+       e :monad/val} (m.writer/listen
+                      (m/mlet m.prw/prw-ctx
+                        [_ (m.writer/tell :foofoo)
+                         _ (m.writer/tell :barbar)]
+                        (m/return :blah)))
+      _ (m.writer/tell listen-out)
+      f (m.writer/pass
+         (m/mlet m.prw/prw-ctx
+           [_ (m.writer/tell :one)
+            _ (m.writer/tell :two)
+            _ (m.writer/tell :one)]
+           (m/return [:passed (fn [out] (filter #(= :one %) out))])))
+      g (m/mlet m.pr/promise-ctx
+          [a (m/return 100)
+           b (m/return 100)]
+          (m/return (* a a)))]
+     (m/return [a b c d e f g]))
     {:monad.reader/env {:foo 10 :bar 20}})
 
   ;; catch
