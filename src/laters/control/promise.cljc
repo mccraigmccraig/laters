@@ -25,14 +25,15 @@
   e.p/MonadError
   (-reject [m v]
     (t/tag m (p/rejected promise-impl v)))
-  (-catch [m handler mv]
+  (-catch [m mv handler]
+    (prn "-catch" mv handler)
     (t/tag
      m
      (p/handle
       (l/lift-untag lifter m mv)
       (fn [success error]
         (if (some? error)
-          (handler error)
+          (l/lift-untag lifter m (handler error))
           success))))))
 
 (defn make-promise-lifter
@@ -72,15 +73,16 @@
   (def cemv
     (m/mlet m.pr/promise-ctx
       [a (e/catch
+             emv
              (fn [e]
-               [:error (-> e ex-data)])
-             emv)]
+               (m/return
+                [:error (-> e ex-data)])))]
       (m/return a)))
 
   ;; catch early errors
   (def cemv
-    (e/catch
-        m.pr/promise-ctx
-        ex-data
-      (m/mlet m.pr/promise-ctx
-        (throw (ex-info "foo" {:foo 20}))))))
+    (m/mlet m.pr/promise-ctx
+      (e/catch
+          (throw (ex-info "foo" {:foo 20}))
+          #(m/return (ex-data %))))
+    ))

@@ -100,7 +100,7 @@
   ;;  - calls (handler error) to generate a new mv
   ;;  - calls that with the environment
   ;;  - returns new output and value
-  (-catch [m handler mv]
+  (-catch [m mv handler]
     (t/tag
      m
      (fn [{env :monad.reader/env}]
@@ -283,19 +283,18 @@
   (def ce
     (m.prw/run-prw
      (m.prw/prw-let
-      (e/catch #(m/return (ex-data %)) emv))
+      (e/catch emv #(m/return (ex-data %))))
      {:monad.reader/env {:foo 10}}))
 
   ;; catch in first step
   @(m.prw/run-prw
     (m.prw/prw-let
      (e/catch
+         (throw (ex-info "boo" {:foo 200}))
          (fn [e]
            (m.prw/prw-let
             [_ (m.writer/tell [:error (.getMessage e)])]
-            (m/return (ex-data e))))
-
-         (throw (ex-info "boo" {:foo 200}))))
+            (m/return (ex-data e))))))
     {})
 
   ;; RxJava Single-based promises
@@ -318,12 +317,12 @@
     (m.prw/run-prw
      (m/mlet prw-ctx
        (e/catch
+           emv
            (fn [e]
              (m/mlet prw-ctx
                [_ (m.writer/tell [:error (.getMessage e)])]
-               (m/return (ex-data e))))
-           emv))
+               (m/return (ex-data e))))))
      {:monad.reader/env {:foo 10}}))
 
-  (p/inspect ce)
+  (p/deref ce)
   )

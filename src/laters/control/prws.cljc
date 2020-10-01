@@ -134,7 +134,7 @@
   ;;  - calls (handler error) to generate a new mv
   ;;  - calls that with the environment
   ;;  - returns new state, output and value
-  (-catch [m handler mv]
+  (-catch [m mv handler]
     (t/tag
      m
      (fn [{env :monad.reader/env
@@ -352,9 +352,8 @@
   @(m.prws/run-prws
     (m.prws/prws-let
      (e/catch
-         m.prws/prws-ctx
-         #(m/return (ex-data %))
-       (throw (ex-info "boo" {:foo 100}))))
+         (throw (ex-info "boo" {:foo 100}))
+         #(m/return (ex-data %))))
     {})
 
   (def emv
@@ -376,11 +375,11 @@
     (m.prws/run-prws
      (m.prws/prws-let
       [a (e/catch
+             emv
              (fn [e]
                (m.prws/prws-let
                 [_ (m.writer/tell [:error (.getMessage e)])]
-                (m/return [:recovered (ex-data e)])))
-             emv)]
+                (m/return [:recovered (ex-data e)]))))]
       (m/return a))
      {:monad.reader/env {:foo 10}
       :monad.state/state {:blah :blah}}))

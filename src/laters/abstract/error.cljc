@@ -16,7 +16,7 @@
    `(p/-reject ~'this-monad## ~v)))
 
 (defmacro catch
-  ([m handler mv]
-   `(p/-catch ~m ~handler (catch-reject ~m ~mv)))
-  ([handler mv]
-   `(p/-catch ~'this-monad## ~handler (catch-reject ~'this-monad## ~mv))))
+  ([m mv handler]
+   `(p/-catch ~m (catch-reject ~m ~mv) ~handler ))
+  ([mv handler]
+   `(p/-catch ~'this-monad## (catch-reject ~'this-monad## ~mv) ~handler)))
