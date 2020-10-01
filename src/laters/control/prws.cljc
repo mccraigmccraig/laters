@@ -279,9 +279,9 @@
 
 (def prws-lifter (l/create-atomic-lifter))
 
-(def prws-ctx (make-prws-ctx promesa/promesa-factory prws-lifter))
+(def prws-ctx (make-prws-ctx promesa/factory prws-lifter))
 
-(l/register-all prws-lifter prws-ctx (prws-lifters promesa/promesa-factory))
+(l/register-all prws-lifter prws-ctx (prws-lifters promesa/factory))
 
 (m/deflets
   {prws-let laters.control.prws/prws-ctx})

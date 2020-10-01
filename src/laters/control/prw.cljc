@@ -195,9 +195,9 @@
   (PRW. promise-impl lifter))
 
 (def prw-lifter (l/create-atomic-lifter))
-(def prw-ctx (make-prw-ctx promesa/promesa-factory prw-lifter))
+(def prw-ctx (make-prw-ctx promesa/factory prw-lifter))
 
-(l/register-all prw-lifter prw-ctx (prw-lifters promesa/promesa-factory))
+(l/register-all prw-lifter prw-ctx (prw-lifters promesa/factory))
 
 (m/deflets
   {prw-let laters.control.prw/prw-ctx})
@@ -218,7 +218,7 @@
   (require '[laters.concurrency.promise :as p])
   (require '[laters.concurrency.promise.rxjava :as rxjava])
 
-  @(m.prw/run-prw
+    @(m.prw/run-prw
     (m.prw/prw-let
      [{a :foo} (m.reader/ask)
       b (m.reader/asks :bar)
@@ -283,7 +283,7 @@
   ;; RxJava Single-based promises
   (def prw-ctx
     (m.prw/make-prw-ctx
-     rxjava/singlesubject-factory {}))
+     rxjava/factory {}))
 
   ;; does some stuff, then errors
   (def emv

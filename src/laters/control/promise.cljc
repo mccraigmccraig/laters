@@ -46,8 +46,8 @@
   [promise-impl lifter]
   (Promise. promise-impl lifter))
 
-(def promise-lifter (make-promise-lifter promesa/promesa-factory))
-(def promise-ctx (make-promise-ctx promesa/promesa-factory promise-lifter))
+(def promise-lifter (make-promise-lifter promesa/factory))
+(def promise-ctx (make-promise-ctx promesa/factory promise-lifter))
 
 (comment
   (require '[laters.abstract.monad :as m])
