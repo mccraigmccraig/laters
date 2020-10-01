@@ -8,8 +8,8 @@
 
 (deftype Maybe [lifter]
   m.p/Monad
-  (-bind [m wmv f]
-    (let [mv (l/lift-untag lifter m wmv)]
+  (-bind [m mv f]
+    (let [mv (l/lift-untag lifter m mv)]
       (if (some? mv)
         (l/lift lifter m (f mv))
         (t/tag m nil))))

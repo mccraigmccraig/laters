@@ -11,13 +11,13 @@
 
 (deftype State [lifter]
   m.p/Monad
-  (-bind [m wmv f]
+  (-bind [m mv f]
     (t/tag
      m
      (fn [{st :monad.state/state}]
        (let [{st' :monad.state/state
-              val :monad/val} ((l/lift-untag lifter m wmv)
-                                   {:monad.state/state st})]
+              val :monad/val} ((l/lift-untag lifter m mv)
+                               {:monad.state/state st})]
          ((l/lift-untag lifter m (f val)) {:monad.state/state st'})))))
   (-return [m v]
     (t/tag
@@ -54,8 +54,8 @@
 (def state-ctx (State. nil))
 
 (defn run-state
-  [wmv state]
-  ((t/untag wmv) state))
+  [mv state]
+  ((t/untag mv) state))
 
 (comment
   (require '[laters.abstract.monad :as m])

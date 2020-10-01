@@ -118,8 +118,8 @@
 (def rws-ctx (RWS. rws-lifter))
 
 (defn run-rws
-  [wmv rws]
-  ((t/untag wmv) rws))
+  [mv rws]
+  ((t/untag mv) rws))
 
 
 (comment

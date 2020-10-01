@@ -55,13 +55,13 @@
 ;; ({:monad.reader/env r})->Promise<{:monad/val v :monad.writer/output w}
 (deftype PRW [promise-impl lifter]
   m.p/Monad
-  (-bind [m wmv f]
+  (-bind [m mv f]
     (t/tag
      m
      (fn [{env :monad.reader/env}]
        (m.pr/handle
         promise-impl
-        (m.pr/pcatch promise-impl ((l/lift-untag lifter m wmv) {:monad.reader/env env}))
+        (m.pr/pcatch promise-impl ((l/lift-untag lifter m mv) {:monad.reader/env env}))
         (fn [{w :monad.writer/output
              v :monad/val
              :as success}
@@ -209,8 +209,8 @@
   {prw-let laters.control.prw/prw-ctx})
 
 (defn run-prw
-  [wmv rw]
-  ((t/untag wmv) rw))
+  [mv rw]
+  ((t/untag mv) rw))
 
 (comment
   (require '[laters.abstract.monad :as m])
@@ -222,7 +222,7 @@
   (require '[laters.control.promise :as m.pr])
   (require '[laters.control.prw :as m.prw])
 
-  @(m.prw/run-prw
+    @(m.prw/run-prw
     (m.prw/prw-let
      [{a :foo} (m.reader/ask)
       b (m.reader/asks :bar)
