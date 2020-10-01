@@ -8,13 +8,9 @@
 (deftype SingleSubjectPromiseFactory []
   p/IPromiseFactory
   (-resolved [ctx v]
-    (let [ss (SingleSubject/create)]
-      (.onSuccess ss v)
-      ss))
+    (SingleSubject/just v))
   (-rejected [ctx err]
-    (let [ss (SingleSubject/create)]
-      (.onError ss err)
-      ss)))
+    (SingleSubject/error err)))
 
 (defn ss-flatten
   [out p]

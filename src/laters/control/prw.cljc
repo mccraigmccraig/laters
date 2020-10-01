@@ -279,10 +279,12 @@
        (throw (ex-info "boo" {:foo 200}))))
     {})
 
-  ;; RxJava promises
+  ;; RxJava Single-based promises
+  (def prw-ctx
+    (m.prw/make-prw-ctx
+     rxjava/singlesubject-factory {}))
 
-  (def prw-ctx (m.prw/make-prw-ctx rxjava/singlesubject-factory {}))
-
+  ;; does some stuff, then errors
   (def emv
     (m/mlet prw-ctx
       [a (m.reader/asks :foo)
@@ -292,6 +294,7 @@
        _ (throw (ex-info "wah" {:a a :b b}))]
       (m/return [a b])))
 
+  ;; catches any error, retrieving writer log
   (def ce
     (m.prw/run-prw
      (m/mlet prw-ctx
