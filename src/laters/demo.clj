@@ -58,9 +58,15 @@
      _ (spit-file f1 "foofoo")
      txt1 (slurp-file f1)
      txt2 (slurp-file f2)]
-    (m/return (str txt1 "-" txt2))))
+    (m/return [:concatenated (str txt1 "-" txt2)])))
 
 (defn run
+  [f1 f2]
+  (m.prw/run-prw
+   (stuff)
+   {:monad.reader/env {:f1 f1 :f2 f2}}))
+
+(defn run-recover
   [f1 f2]
   (m.prw/run-prw
    (m/mlet promesa-prw-ctx
@@ -68,6 +74,49 @@
          (fn [e]
            (m/mlet promesa-prw-ctx
              [_ (m.w/tell [:error (.getMessage e)])]
-             (m/return :recovered)))
+             (m/return [:recovered])))
          (stuff)))
    {:monad.reader/env {:f1 f1 :f2 f2}}))
+
+(comment
+
+  ;; ;;;;;;;;;;;;; a successful run
+
+  @(laters.demo/run "foo" "foo")
+
+  =>
+
+  {:monad.writer/output
+   [[:write {:f "foo"}] [:read {:f "foo"}] [:read {:f "foo"}]],
+   :monad/val [:concatenated "foofoo-foofoo"]}
+
+  ;; ;;;;;;;;;;;;; a failure
+
+  @(laters.demo/run-recover "foo" "bar")
+
+  =>
+
+  ;; BOOM! with ex-data
+
+  {:type :laters.control.prw/error
+   :monad/error <the-exception>
+   :monad.writer/output Atom<[[:write {:f "foo"}]
+                              [:read {:f "foo"}]
+                              [:read {:f "bar"}]]>}
+
+  ;; ;;;;;;;;;;;;; a failure and recovery
+
+  @(laters.demo/run-recover "foo" "bar")
+
+  =>
+
+  {:monad.writer/output
+   [[:write {:f "foo"}]
+    [:read {:f "foo"}]
+    [:read {:f "bar"}]
+    [:error "bar (No such file or directory)"]],
+   :monad/val [:recovered]}
+
+  ;; ;;;;;;;
+
+  )
