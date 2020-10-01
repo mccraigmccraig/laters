@@ -9,9 +9,9 @@
    [laters.control.reader :as m.r]
    [laters.control.writer :as m.w]
    [laters.control.promise :as m.pr]
-   [laters.control.promise.promesa :as promesa])
+   [laters.concurrency.promise :as p]
+   [laters.concurrency.promise.promesa :as promesa])
   (:import
-   [java.util.concurrent ExecutionException CompletionException]
    [clojure.lang ExceptionInfo]
    [clojure.lang Atom]))
 
@@ -59,22 +59,22 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/handle
-        (m.pr/pcatch promise-impl ((l/lift-untag lifter m mv) {:monad.reader/env env}))
+       (p/handle
+        (p/pcatch promise-impl ((l/lift-untag lifter m mv) {:monad.reader/env env}))
         (fn [{w :monad.writer/output
              v :monad/val
              :as success}
             error]
           (if (some? error)
-            (m.pr/rejected promise-impl (concat-error error []))
-            (m.pr/handle
-             (m.pr/pcatch promise-impl ((l/lift-untag lifter m (f v)) {:monad.reader/env env}))
+            (p/rejected promise-impl (concat-error error []))
+            (p/handle
+             (p/pcatch promise-impl ((l/lift-untag lifter m (f v)) {:monad.reader/env env}))
              (fn [{w' :monad.writer/output
                   v' :monad/val :as success}
                  error]
                (if (some? error)
-                 (m.pr/rejected promise-impl (concat-error error w))
-                 (m.pr/resolved
+                 (p/rejected promise-impl (concat-error error w))
+                 (p/resolved
                   promise-impl
                   {:monad.writer/output ((fnil into []) w w')
                    :monad/val v'}))))))))))
@@ -82,7 +82,7 @@
     (t/tag
      m
      (fn [_]
-       (m.pr/resolved
+       (p/resolved
         promise-impl
         {:monad.writer/output []
          :monad/val v}))))
@@ -91,7 +91,7 @@
     (t/tag
      m
      (fn [_]
-       (m.pr/rejected
+       (p/rejected
         promise-impl
         (prw-error v)))))
 
@@ -102,8 +102,8 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/handle
-        (m.pr/pcatch promise-impl ((l/lift-untag lifter m mv) {:monad.reader/env env}))
+       (p/handle
+        (p/pcatch promise-impl ((l/lift-untag lifter m mv) {:monad.reader/env env}))
         (fn [success error]
           (if (some? error)
 
@@ -123,7 +123,7 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/rejected
+       (p/rejected
         promise-impl
         (ex-info
          ":mopr.control.monad/mzero"
@@ -134,7 +134,7 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/resolved
+       (p/resolved
         promise-impl
         {:monad.writer/output nil
          :monad/val env}))))
@@ -150,14 +150,14 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/resolved
+       (p/resolved
         promise-impl
         {:monad.writer/output [v] :monad/val nil}))))
   (-listen [m mv]
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/then
+       (p/then
         ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
              v :monad/val
@@ -168,7 +168,7 @@
     (t/tag
      m
      (fn [{env :monad.reader/env}]
-       (m.pr/then
+       (p/then
         ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
              pass-val :monad/val}]
@@ -180,12 +180,12 @@
   [promise-impl]
   {m.id/identity-ctx (fn [mv]
                        (fn [{r :monad.reader/env}]
-                         (m.pr/resolved
+                         (p/resolved
                           promise-impl
                           {:monad.writer/output nil :monad/val mv})))
    m.pr/promise-ctx (fn [mv]
                       (fn [{r :monad.reader/env}]
-                        (m.pr/then
+                        (p/then
                          mv
                          (fn [v]
                            {:monad.writer/output nil :monad/val v}))))})
@@ -215,7 +215,8 @@
   (require '[laters.control.writer :as m.writer])
   (require '[laters.control.promise :as m.pr])
   (require '[laters.control.prw :as m.prw])
-  (require '[laters.control.promise.rxjava :as rxjava])
+  (require '[laters.concurrency.promise :as p])
+  (require '[laters.concurrency.promise.rxjava :as rxjava])
 
   @(m.prw/run-prw
     (m.prw/prw-let

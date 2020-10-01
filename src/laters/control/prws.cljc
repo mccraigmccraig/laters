@@ -10,9 +10,9 @@
    [laters.control.writer :as m.w]
    [laters.control.state :as m.st]
    [laters.control.promise :as m.pr]
-   [laters.control.promise.promesa :as promesa])
+   [laters.concurrency.promise :as p]
+   [laters.concurrency.promise.promesa :as promesa])
   (:import
-   [java.util.concurrent ExecutionException CompletionException]
    [clojure.lang ExceptionInfo]
    [clojure.lang Atom]))
 
@@ -64,9 +64,9 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/handle
+       (p/handle
 
-        (m.pr/pcatch
+        (p/pcatch
          promise-impl
          ((l/lift-untag lifter m mv) {:monad.reader/env env
                                       :monad.state/state st}))
@@ -78,14 +78,14 @@
             error]
           (if (some? error)
             (do
-              (m.pr/rejected
+              (p/rejected
                promise-impl
                (concat-error error [] st)))
 
             (do
-              (m.pr/handle
+              (p/handle
 
-               (m.pr/pcatch
+               (p/pcatch
                 promise-impl
                 ((l/lift-untag lifter m (f v))
                  {:monad.reader/env env
@@ -99,11 +99,11 @@
                  (if (some? error)
 
                    (do
-                     (m.pr/rejected
+                     (p/rejected
                       promise-impl
                       (concat-error error w st')))
                    (do
-                     (m.pr/resolved
+                     (p/resolved
                       promise-impl
                       {:monad.writer/output ((fnil into []) w w')
                        :monad.state/state st''
@@ -113,7 +113,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/resolved
+       (p/resolved
         promise-impl
         {:monad.writer/output nil
          :monad.state/state st
@@ -125,7 +125,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/rejected
+       (p/rejected
         promise-impl
         (prws-error error st)))))
   (-catch [m handler mv]
@@ -133,9 +133,9 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/handle
+       (p/handle
 
-        (m.pr/pcatch
+        (p/pcatch
          promise-impl
          ((l/lift-untag lifter m mv) {:monad.reader/env env
                                       :monad.state/state st}))
@@ -161,7 +161,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/rejected
+       (p/rejected
         promise-impl
         (ex-info
          ":mopr.control.monad/mzero"
@@ -175,7 +175,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/resolved
+       (p/resolved
         promise-impl
         {:monad.writer/output nil
          :monad.state/state st
@@ -193,7 +193,7 @@
     (t/tag
      m
      (fn [{r :monad.reader/env st :monad.state/state}]
-       (m.pr/resolved
+       (p/resolved
         promise-impl
         {:monad.writer/output [v] :monad.state/state st :monad/val nil}))))
   (-listen [m mv]
@@ -201,7 +201,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/then
+       (p/then
 
         ((l/lift-untag lifter m mv) {:monad.reader/env env
                                      :monad.state/state st})
@@ -218,7 +218,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/then
+       (p/then
 
         ((l/lift-untag lifter m mv) {:monad.reader/env env
                                      :monad.state/state st})
@@ -237,7 +237,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/resolved
+       (p/resolved
         promise-impl
         {:monad.writer/output nil
          :monad.state/state st
@@ -247,7 +247,7 @@
      m
      (fn [{env :monad.reader/env
           st :monad.state/state}]
-       (m.pr/resolved
+       (p/resolved
         promise-impl
         {:monad.writer/output nil
          :monad.state/state st'
@@ -258,7 +258,7 @@
   {m.id/identity-ctx (fn [mv]
                        (fn [{r :monad.reader/env
                             st :monad.state/state}]
-                         (m.pr/resolved
+                         (p/resolved
                           promise-impl
                           {:monad.writer/output nil
                            :monad.state/state st
@@ -266,7 +266,7 @@
    m.pr/promise-ctx (fn [mv]
                       (fn [{r :monad.reader/env
                            st :monad.state/state}]
-                        (m.pr/then
+                        (p/then
                          mv
                          (fn [v]
                            {:monad.writer/output nil

@@ -6,39 +6,9 @@
    [laters.abstract.lifter :as l]
    [laters.abstract.error.protocols :as e.p]
    [laters.control.identity :as m.id]
-   [laters.control.promise.protocols :as pr.p]
-   [laters.control.promise.promesa :as promesa]))
+   [laters.concurrency.promise :as p]
+   [laters.concurrency.promise.promesa :as promesa]))
 
-(defn resolved
-  [ctx v]
-  (pr.p/-resolved ctx v))
-
-(defn rejected
-  [ctx err]
-  (pr.p/-rejected ctx err))
-
-(defn then
-  [p f]
-  (pr.p/-then p f))
-
-(defn handle
-  [p f]
-  (pr.p/-handle p f))
-
-(defn inspect
-  [p]
-  (pr.p/-handle p (fn [s e]
-                    (if (some? e)
-                      (prn "ERROR" e)
-                      (prn "SUCCESS" s)))))
-
-(defmacro pcatch
-  "catch any exception and return as a rejected promise"
-  [promise-impl & body]
-  `(try
-     ~@body
-     (catch Exception x#
-       (rejected ~promise-impl x#))))
 
 (deftype Promise [promise-impl lifter]
   m.p/Monad
@@ -46,19 +16,19 @@
     (let [mv (l/lift-untag lifter m tmv)]
       (t/tag
        m
-       (then
+       (p/then
         mv
         (fn [v]
           (l/lift-untag lifter m (f v)))))))
   (-return [m v]
-    (t/tag m (resolved promise-impl v)))
+    (t/tag m (p/resolved promise-impl v)))
   e.p/MonadError
   (-reject [m v]
-    (t/tag m (rejected promise-impl v)))
+    (t/tag m (p/rejected promise-impl v)))
   (-catch [m handler mv]
     (t/tag
      m
-     (handle
+     (p/handle
       (l/lift-untag lifter m mv)
       (fn [success error]
         (if (some? error)
@@ -68,7 +38,7 @@
 (defn make-promise-lifter
   [promise-impl]
   {m.id/identity-ctx (fn [mv]
-                       (resolved
+                       (p/resolved
                         promise-impl
                         mv))})
 
