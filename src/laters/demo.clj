@@ -87,7 +87,9 @@
   =>
 
   {:monad.writer/output
-   [[:write {:f "foo"}] [:read {:f "foo"}] [:read {:f "foo"}]],
+   [[:write {:f "foo"}]
+    [:read {:f "foo"}]
+    [:read {:f "foo"}]],
    :monad/val [:concatenated "foofoo-foofoo"]}
 
   ;; ;;;;;;;;;;;;; a failure
