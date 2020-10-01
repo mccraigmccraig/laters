@@ -18,12 +18,12 @@
   (pr.p/-rejected ctx err))
 
 (defn then
-  [ctx p f]
-  (pr.p/-then ctx p f))
+  [p f]
+  (pr.p/-then p f))
 
 (defn handle
-  [ctx p f]
-  (pr.p/-handle ctx p f))
+  [p f]
+  (pr.p/-handle p f))
 
 (defmacro pcatch
   "catch any exception and return as a rejected promise"
@@ -40,7 +40,6 @@
       (t/tag
        m
        (then
-        promise-impl
         mv
         (fn [v]
           (l/lift-untag lifter m (f v)))))))
@@ -53,7 +52,6 @@
     (t/tag
      m
      (handle
-      promise-impl
       (l/lift-untag lifter m mv)
       (fn [success error]
         (if (some? error)
@@ -71,8 +69,8 @@
   [promise-impl lifter]
   (Promise. promise-impl lifter))
 
-(def promise-lifter (make-promise-lifter promesa/promesa-promise))
-(def promise-ctx (make-promise-ctx promesa/promesa-promise promise-lifter))
+(def promise-lifter (make-promise-lifter promesa/promesa-factory))
+(def promise-ctx (make-promise-ctx promesa/promesa-factory promise-lifter))
 
 (comment
   (require '[laters.abstract.monad :as m])

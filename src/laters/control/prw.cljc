@@ -60,7 +60,6 @@
      m
      (fn [{env :monad.reader/env}]
        (m.pr/handle
-        promise-impl
         (m.pr/pcatch promise-impl ((l/lift-untag lifter m mv) {:monad.reader/env env}))
         (fn [{w :monad.writer/output
              v :monad/val
@@ -69,7 +68,6 @@
           (if (some? error)
             (m.pr/rejected promise-impl (concat-error error []))
             (m.pr/handle
-             promise-impl
              (m.pr/pcatch promise-impl ((l/lift-untag lifter m (f v)) {:monad.reader/env env}))
              (fn [{w' :monad.writer/output
                   v' :monad/val :as success}
@@ -105,7 +103,6 @@
      m
      (fn [{env :monad.reader/env}]
        (m.pr/handle
-        promise-impl
         (m.pr/pcatch promise-impl ((l/lift-untag lifter m mv) {:monad.reader/env env}))
         (fn [success error]
           (if (some? error)
@@ -161,7 +158,6 @@
      m
      (fn [{env :monad.reader/env}]
        (m.pr/then
-        promise-impl
         ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
              v :monad/val
@@ -173,7 +169,6 @@
      m
      (fn [{env :monad.reader/env}]
        (m.pr/then
-        promise-impl
         ((l/lift-untag lifter m mv) {:monad.reader/env env})
         (fn [{w :monad.writer/output
              pass-val :monad/val}]
@@ -191,7 +186,6 @@
    m.pr/promise-ctx (fn [mv]
                       (fn [{r :monad.reader/env}]
                         (m.pr/then
-                         promise-impl
                          mv
                          (fn [v]
                            {:monad.writer/output nil :monad/val v}))))})
@@ -201,9 +195,9 @@
   (PRW. promise-impl lifter))
 
 (def prw-lifter (l/create-atomic-lifter))
-(def prw-ctx (make-prw-ctx promesa/promesa-promise prw-lifter))
+(def prw-ctx (make-prw-ctx promesa/promesa-factory prw-lifter))
 
-(l/register-all prw-lifter prw-ctx (prw-lifters promesa/promesa-promise))
+(l/register-all prw-lifter prw-ctx (prw-lifters promesa/promesa-factory))
 
 (m/deflets
   {prw-let laters.control.prw/prw-ctx})
@@ -222,7 +216,7 @@
   (require '[laters.control.promise :as m.pr])
   (require '[laters.control.prw :as m.prw])
 
-    @(m.prw/run-prw
+  @(m.prw/run-prw
     (m.prw/prw-let
      [{a :foo} (m.reader/ask)
       b (m.reader/asks :bar)

@@ -65,7 +65,6 @@
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (m.pr/handle
-        promise-impl
 
         (m.pr/pcatch
          promise-impl
@@ -85,7 +84,6 @@
 
             (do
               (m.pr/handle
-               promise-impl
 
                (m.pr/pcatch
                 promise-impl
@@ -136,7 +134,6 @@
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (m.pr/handle
-        promise-impl
 
         (m.pr/pcatch
          promise-impl
@@ -205,7 +202,6 @@
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (m.pr/then
-        promise-impl
 
         ((l/lift-untag lifter m mv) {:monad.reader/env env
                                      :monad.state/state st})
@@ -223,7 +219,6 @@
      (fn [{env :monad.reader/env
           st :monad.state/state}]
        (m.pr/then
-        promise-impl
 
         ((l/lift-untag lifter m mv) {:monad.reader/env env
                                      :monad.state/state st})
@@ -272,7 +267,6 @@
                       (fn [{r :monad.reader/env
                            st :monad.state/state}]
                         (m.pr/then
-                         promise-impl
                          mv
                          (fn [v]
                            {:monad.writer/output nil
@@ -285,9 +279,9 @@
 
 (def prws-lifter (l/create-atomic-lifter))
 
-(def prws-ctx (make-prws-ctx promesa/promesa-promise prws-lifter))
+(def prws-ctx (make-prws-ctx promesa/promesa-factory prws-lifter))
 
-(l/register-all prws-lifter prws-ctx (prws-lifters promesa/promesa-promise))
+(l/register-all prws-lifter prws-ctx (prws-lifters promesa/promesa-factory))
 
 (m/deflets
   {prws-let laters.control.prws/prws-ctx})
