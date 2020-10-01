@@ -277,4 +277,25 @@
       (m.prw/prw-let
        (throw (ex-info "boo" {:foo 200}))))
     {})
+
+  ;; RxJava promises
+
+  (def prw-ctx (m.prw/make-prw-ctx laters.control.promise.rxjava/singlesubject-factory {}))
+
+  (def emv
+    (m/mlet prw-ctx
+      [a (m.reader/asks :foo)
+       _ (m.writer/tell [:foo a])
+       b (m/return 5)
+       _ (m.writer/tell :bar)
+       _ (throw (ex-info "wah" {:a a :b b}))]
+      (m/return [a b])))
+
+  (def ce
+    (m.prw/run-prw
+     (m/mlet prw-ctx
+       (e/catch ex-data emv))
+     {:monad.reader/env {:foo 10}}))
+
+  (m.pr/inspect ce)
   )

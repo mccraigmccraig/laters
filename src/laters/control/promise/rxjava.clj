@@ -3,8 +3,7 @@
    [laters.control.promise.protocols :as p])
   (:import
    [io.reactivex.subjects SingleSubject]
-   [io.reactivex Single SingleObserver]
-   [io.reactivex.functions Function]))
+   [io.reactivex Single SingleObserver]))
 
 (deftype SingleSubjectPromiseFactory []
   p/IPromiseFactory
@@ -27,10 +26,8 @@
      (reify SingleObserver
        (onSubscribe [_ _])
        (onError [_ err]
-         (prn "flatten error:" err)
          (.onError out err))
        (onSuccess [_ success]
-         (prn "flatten success:" success)
          (.onSuccess out success))))))
 
 (defn ss-then
@@ -43,7 +40,6 @@
        (onError [_ err]
          (.onError ss err))
        (onSuccess [_ success]
-         (prn "then success:" success)
          (try
            (ss-flatten ss (f success))
            (catch Exception x
@@ -58,13 +54,11 @@
      (reify SingleObserver
        (onSubscribe [_ _])
        (onError [_ err]
-         (prn "handle error:" err)
          (try
            (ss-flatten ss (f nil err))
            (catch Exception x
              (.onError ss x))))
        (onSuccess [_ success]
-         (prn "handle success:" success)
          (try
            (ss-flatten ss (f success nil))
            (catch Exception x
