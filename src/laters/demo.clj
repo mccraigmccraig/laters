@@ -17,6 +17,9 @@
 (def promesa-prw-ctx
   (m.prw/make-prw-ctx promesa-impl/factory lifter))
 
+(m/deflets
+  {prw-let laters.demo/promesa-prw-ctx})
+
 (def promesa-prw-ctx-lifters
   {m.p/promise-ctx (fn [p]
                      (fn [_]
@@ -35,7 +38,7 @@
 
 (defn spit-file
   [f contents]
-  (m/mlet promesa-prw-ctx
+  (prw-let
     [_ (m.w/tell [:write {:f f}])
      out (io (io/writer f))
      _ (io (.write out contents))
@@ -45,7 +48,7 @@
 
 (defn slurp-file
   [f]
-  (m/mlet promesa-prw-ctx
+  (prw-let
     [_ (m.w/tell [:read {:f f}])
      contents (io (slurp f))]
     (m/return contents)))
@@ -53,7 +56,7 @@
 (defn stuff
   "get the files, :f1 and :f2, to read and write from the environment"
   []
-  (m/mlet promesa-prw-ctx
+  (prw-let
     [{f1 :f1
       f2 :f2} (m.r/ask)
      _ (spit-file f1 "foofoo")
@@ -72,7 +75,7 @@
   "run and log and recover any errors"
   [f1 f2]
   (m.prw/run-prw
-   (m/mlet promesa-prw-ctx
+   (prw-let
      (m.e/catch
          (fn [e]
            (m/mlet promesa-prw-ctx
