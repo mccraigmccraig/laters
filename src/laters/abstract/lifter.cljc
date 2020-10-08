@@ -47,7 +47,7 @@
   (let [from-type (m.p/-type (t.p/-ctx mv))
         lifter (match-lifter lifters from-type)]
     (if (some? lifter)
-      (p/-lift-untag lifter (t/untag mv))
+      (p/-lift-untagged lifter (t/untag mv))
 
       (throw
        (ex-info
@@ -59,8 +59,8 @@
 ;; let plain fns be used as lifters
 (extend IFn
   p/ILifter
-  {:-lift-untag (fn [this mv]
-                  (this mv))})
+  {:-lift-untagged (fn [this mv]
+                     (this mv))})
 
 ;; a lifter which has an atom of
 ;; {<to-ctx-type> {<from-ctx-type-cmpnt> {<from-ctx-type-cmpnt>  <lifter>}}}
@@ -117,5 +117,7 @@
        :tmv mv}))))
 
 (defn lift
-  [lifter m tmv]
-  (t/tag m (lift-untag lifter m tmv)))
+  "lifts a TaggedMV into Monad m, returning
+   TaggedMV"
+  [lifter-registry m tmv]
+  (t/tag m (lift-untag lifter-registry m tmv)))

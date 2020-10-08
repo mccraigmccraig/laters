@@ -201,6 +201,7 @@
                           to-promise-impl
                           {:monad.writer/output nil :monad/val mv})))
 
+   ;; lift any recognised type of plain promise!
    [::m.pr/Promise :type/*] (fn [mv]
                               (fn [{r :monad.reader/env}]
                                 (let [d (p/deferred)]
