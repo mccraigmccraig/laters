@@ -6,13 +6,15 @@
    [io.reactivex.subjects SingleSubject]
    [io.reactivex Single SingleObserver]))
 
-(deftype SingleSubjectPromiseFactory []
+(deftype SingleSubjectPromiseFactory [scheduler]
   p/IPromiseFactory
-  (-type [ctx]
+  (-type [_]
     [::SingleSubjectPromise])
-  (-resolved [ctx v]
+  (-executor [_]
+    scheduler)
+  (-resolved [_ v]
     (SingleSubject/just v))
-  (-rejected [ctx err]
+  (-rejected [_ err]
     (SingleSubject/error err)))
 
 (defn ss-flatten
@@ -30,8 +32,11 @@
          (.onSuccess out success))))))
 
 (defn ss-then
-  ([p f]
+  ([p f] (ss-then p f nil))
+  ([p f scheduler]
    (let [ss (SingleSubject/create)]
+     (when (some? scheduler)
+       (.observeOn ss scheduler))
      (.subscribeWith
       p
       (reify SingleObserver
@@ -46,8 +51,11 @@
      ss)))
 
 (defn ss-handle
-  ([p f]
+  ([p f] (ss-handle p f nil))
+  ([p f scheduler]
    (let [ss (SingleSubject/create)]
+     (when (some? scheduler)
+       (.observeOn ss scheduler))
      (.subscribeWith
       p
       (reify SingleObserver
@@ -84,4 +92,4 @@
    :-handle ss-handle
    :-deref ss-deref})
 
-(def factory (SingleSubjectPromiseFactory.))
+(def factory (SingleSubjectPromiseFactory. nil))
