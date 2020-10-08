@@ -6,14 +6,18 @@
    [java.util.concurrent CompletableFuture]))
 
 
-(deftype PromesaPromiseFactory []
+(deftype PromesaPromiseFactory [executor]
   p/IPromiseFactory
   (-type [ctx]
     [:PromesaPromise])
-  (-resolved [ctx v]
+  (-executor [_]
+    executor)
+  (-resolved [_ v]
     (promesa/resolved v))
-  (-rejected [ctx err]
-    (promesa/rejected err)))
+  (-rejected [_ err]
+    (promesa/rejected err))
+  (-deferred [_]
+    (promesa/deferred)))
 
 (extend CompletableFuture
   p/IPromise
@@ -22,4 +26,4 @@
    #?@(:clj [:-deref clojure.core/deref])
    })
 
-(def factory (PromesaPromiseFactory.))
+(def factory (PromesaPromiseFactory. nil))
