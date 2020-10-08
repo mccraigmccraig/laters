@@ -7,6 +7,8 @@
 
 (deftype Identity [lifter]
   m.p/Monad
+  (-type [m]
+    [::Identity])
   (-bind [m mv f]
     (l/lift
      lifter

@@ -8,6 +8,8 @@
 
 (deftype Maybe [lifter]
   m.p/Monad
+  (-type[m]
+    [::Maybe])
   (-bind [m mv f]
     (let [mv (l/lift-untag lifter m mv)]
       (if (some? mv)

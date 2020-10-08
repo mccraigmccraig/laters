@@ -8,6 +8,8 @@
 
 (deftype SingleSubjectPromiseFactory []
   p/IPromiseFactory
+  (-type [ctx]
+    [::SingleSubjectPromise])
   (-resolved [ctx v]
     (SingleSubject/just v))
   (-rejected [ctx err]
@@ -28,39 +30,39 @@
          (.onSuccess out success))))))
 
 (defn ss-then
-  [p f]
-  (let [ss (SingleSubject/create)]
-    (.subscribeWith
-     p
-     (reify SingleObserver
-       (onSubscribe [_ _])
-       (onError [_ err]
-         (.onError ss err))
-       (onSuccess [_ success]
-         (try
-           (ss-flatten ss (f success))
-           (catch Exception x
-             (.onError ss x))))))
-    ss))
+  ([p f]
+   (let [ss (SingleSubject/create)]
+     (.subscribeWith
+      p
+      (reify SingleObserver
+        (onSubscribe [_ _])
+        (onError [_ err]
+          (.onError ss err))
+        (onSuccess [_ success]
+          (try
+            (ss-flatten ss (f success))
+            (catch Exception x
+              (.onError ss x))))))
+     ss)))
 
 (defn ss-handle
-  [p f]
-  (let [ss (SingleSubject/create)]
-    (.subscribeWith
-     p
-     (reify SingleObserver
-       (onSubscribe [_ _])
-       (onError [_ err]
-         (try
-           (ss-flatten ss (f nil err))
-           (catch Exception x
-             (.onError ss x))))
-       (onSuccess [_ success]
-         (try
-           (ss-flatten ss (f success nil))
-           (catch Exception x
-             (.onError ss x))))))
-    ss))
+  ([p f]
+   (let [ss (SingleSubject/create)]
+     (.subscribeWith
+      p
+      (reify SingleObserver
+        (onSubscribe [_ _])
+        (onError [_ err]
+          (try
+            (ss-flatten ss (f nil err))
+            (catch Exception x
+              (.onError ss x))))
+        (onSuccess [_ success]
+          (try
+            (ss-flatten ss (f success nil))
+            (catch Exception x
+              (.onError ss x))))))
+     ss)))
 
 (defn ss-deref
   [p]

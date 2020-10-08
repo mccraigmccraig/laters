@@ -1,87 +1,120 @@
 (ns laters.abstract.lifter
   (:require
+   [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.lifter.protocols :as p]
    [laters.abstract.tagged :as t]
    [laters.abstract.tagged.protocols :as t.p])
   (:import
-   [clojure.lang Associative]))
+   [clojure.lang IFn]))
 
-(defn ^:private assoc-lift*
-  [lifters m tmv]
-  (if (contains? lifters (t.p/-ctx tmv))
-    ((get lifters (t.p/-ctx tmv)) (t/untag tmv))
+(defn lifter?
+  [l]
+  (satisfies? p/ILifter l))
 
-    (throw
-     (ex-info
-      "map lifter: no lifter registered"
-      {:from (t.p/-ctx tmv)
-       :to m
-       :tmv tmv}))))
+(declare match-lifter)
 
-;; a plain map {<from-ctx> <lifter>} can be used to provide lifters
-;; for a single context...
-(extend Associative
+(defn ^:private match-segment
+  [lifters tc r]
+  (cond
+
+    ;; gotcha
+    (and (empty? r)
+         (lifter? (get lifters tc)))
+    (get lifters tc)
+
+    (not-empty r)
+    (match-lifter (get lifters tc) (next r))
+
+    :else
+    nil))
+
+(defn ^:private match-lifter
+  [lifters [tc & r]]
+  (cond
+
+    (contains? lifters tc)
+    (match-segment lifters tc r)
+
+    (contains? lifters :type/*)
+    (match-segment lifters :type/* r)
+
+    ;; no match
+    :else
+    nil))
+
+(defn ^:private match-lift-untag*
+  [lifters m mv]
+  (let [from-type (m.p/-type (t.p/-ctx mv))
+        lifter (match-lifter lifters from-type)]
+    (if (some? lifter)
+      (p/-lift-untag lifter (t/untag mv))
+
+      (throw
+       (ex-info
+        "map lifter: no lifter registered"
+        {:from (m.p/-type from-type)
+         :to (m.p/-type m)
+         :mv mv})))))
+
+;; let plain fns be used as lifters
+(extend IFn
   p/ILifter
-  {:-lift-untag assoc-lift*
-   :-lift (fn [this m tmv]
-            (t/tag m (assoc-lift* this m tmv)))})
+  {:-lift-untag (fn [this mv]
+                  (this mv))})
 
 ;; a lifter which has an atom of
-;; {<to-ctx> {<from-ctx> <lifter>}}
+;; {<to-ctx-type> {<from-ctx-type-cmpnt> {<from-ctx-type-cmpnt>  <lifter>}}}
 ;; permitting bi-directional lifts to
-;; be established e.g. P<->PRW or PRW<->PRWS
-(defrecord AtomicLifter [lifters-a]
-  p/ILifter
-  (-lift-untag [_ m tmv]
-    (assoc-lift* (get @lifters-a m {}) m tmv))
-  (-lift [_ m tmv]
-    (t/tag m (assoc-lift* (get @lifters-a {}) m tmv)))
-  p/IAtomicLifter
-  (-register [_ to-ctx from-ctx lifter]
+;; be established e.g. P[promesa]<->PRW[RxJava] or PRW[*]<->PRWS[*]
+(defrecord AtomicLifterRegistry [lifters-a]
+  p/ILifterRegistry
+  (-match-lift-untag [_ m mv]
+    (match-lift-untag* (get @lifters-a (m.p/-type m) {}) m mv))
+  (-register [_ to-ctx-type from-ctx-type lifter]
     (swap!
      lifters-a
      assoc-in
-     [to-ctx from-ctx]
+     (into [to-ctx-type] from-ctx-type)
      lifter))
-  (-deregister [_ to-ctx from-ctx]
+  (-deregister [_ to-ctx-type from-ctx-type]
     (swap!
      lifters-a
      update-in
-     to-ctx
+     [to-ctx-type]
      dissoc
-     from-ctx)))
+     (first from-ctx-type))))
 
 (defn register
-  [lifter to-ctx from-ctx lifter-fn]
-  (p/-register lifter to-ctx from-ctx lifter-fn))
+  [lifter-registry to-ctx-type from-ctx-type lifter-fn]
+  (p/-register lifter-registry to-ctx-type from-ctx-type lifter-fn))
 
 (defn register-all
-  [lifter to-ctx from-lifter-map]
-  (doseq [[from-ctx lifter-fn] from-lifter-map]
-    (p/-register lifter to-ctx from-ctx lifter-fn)))
+  [lifter-registry to-ctx from-ctx-type->lifter-map]
+  (doseq [[from-ctx-type lifter-fn] from-ctx-type->lifter-map]
+    (p/-register lifter-registry (m.p/-type to-ctx) from-ctx-type lifter-fn)))
 
-(defn create-atomic-lifter
+(defn create-atomic-lifter-registry
   []
-  (AtomicLifter. (atom {})))
+  (AtomicLifterRegistry. (atom {})))
 
 (defn lift-untag
   "lifts a TaggedMV into Monad m, returning
    an untagged MV"
-  [lifter m tmv]
+  [lifter-registry m mv]
   (cond
-    (= m (t.p/-ctx tmv))
-    (t/untag tmv)
+    (= m (t.p/-ctx mv))
+    (t/untag mv)
 
-    (some? lifter)
-    (p/-lift-untag lifter m tmv)
+    (some? lifter-registry)
+    (p/-match-lift-untag lifter-registry m mv)
 
     :else
     (throw
      (ex-info
-      "no lifts"
-      {:from (t.p/-ctx tmv)
+      "no lifter registry"
+      {:from (t.p/-ctx mv)
        :to m
-       :tmv tmv}))))
+       :tmv mv}))))
 
 (defn lift
   [lifter m tmv]

@@ -11,6 +11,8 @@
 
 (deftype Reader [lifter]
   m.p/Monad
+  (-type [m]
+    [::Reader])
   (-bind [m mv f]
     (t/tag
      m

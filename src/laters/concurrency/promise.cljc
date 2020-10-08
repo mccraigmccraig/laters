@@ -1,7 +1,11 @@
 (ns laters.concurrency.promise
-  (:refer-clojure :exclude [deref])
+  (:refer-clojure :exclude [deref type])
   (:require
    [laters.concurrency.promise.protocols :as pr.p]))
+
+(defn type
+  [impl]
+  (pr.p/-type impl))
 
 (defn resolved
   [impl v]
@@ -10,6 +14,18 @@
 (defn rejected
   [impl err]
   (pr.p/-rejected impl err))
+
+(defn deferred
+  [impl]
+  (pr.p/-deferred impl))
+
+(defn resolve!
+  [p v]
+  (pr.p/-resolve! p v))
+
+(defn reject!
+  [p err]
+  (pr.p/-reject! p err))
 
 (defn then
   [p f]

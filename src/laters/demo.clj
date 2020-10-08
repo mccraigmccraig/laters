@@ -12,7 +12,7 @@
    [laters.concurrency.promise.promesa :as promesa-impl]
    [promesa.core :as promesa]))
 
-(def lifter (lifter/create-atomic-lifter))
+(def lifter (lifter/create-atomic-lifter-registry))
 
 (def promesa-prw-ctx
   (m.prw/make-prw-ctx promesa-impl/factory lifter))

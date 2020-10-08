@@ -59,6 +59,8 @@
 ;; ({:monad.reader/env r :monad.state/state st})->Promise<{:monad/val v :monad.writer/output w :monad.state/state st}
 (deftype PRWS [promise-impl lifter]
   m.p/Monad
+  (-type [m]
+    (into [::PRWS] (p/type promise-impl)))
   (-bind [m mv f]
     (t/tag
      m
@@ -302,7 +304,7 @@
   [promise-impl lifter]
   (PRWS. promise-impl lifter))
 
-(def prws-lifter (l/create-atomic-lifter))
+(def prws-lifter (l/create-atomic-lifter-registry))
 
 (def prws-ctx (make-prws-ctx promesa/factory prws-lifter))
 

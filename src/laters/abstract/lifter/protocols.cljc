@@ -1,9 +1,9 @@
 (ns laters.abstract.lifter.protocols)
 
 (defprotocol ILifter
-  (-lift [_ m tmv])
-  (-lift-untag [_ m tmv]))
+  (-lift-untag [_ mv]))
 
-(defprotocol IAtomicLifter
-  (-register [_ from to lifter])
-  (-deregister [_ from to]))
+(defprotocol ILifterRegistry
+  (-match-lift-untag [_ m mv])
+  (-register [_ to-type from-type lifter])
+  (-deregister [_ to-type from-type]))

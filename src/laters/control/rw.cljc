@@ -11,6 +11,8 @@
 ;; reader+writer
 (deftype RW [lifter]
   m.p/Monad
+  (-type [m]
+    [::RW])
   (-bind [m mv f]
     (t/tag
      m

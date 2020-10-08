@@ -8,6 +8,8 @@
 
 (deftype PromesaPromiseFactory []
   p/IPromiseFactory
+  (-type [ctx]
+    [:PromesaPromise])
   (-resolved [ctx v]
     (promesa/resolved v))
   (-rejected [ctx err]

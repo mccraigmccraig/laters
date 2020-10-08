@@ -55,7 +55,9 @@
 ;; ({:monad.reader/env r})->Promise<{:monad/val v :monad.writer/output w}
 (deftype PRW [promise-impl lifter]
   m.p/Monad
-  (-bind [m mv f]
+  (-type [m]
+    (into [::PRW] (p/type promise-impl)))
+(-bind [m mv f]
     (t/tag
      m
      (fn [{env :monad.reader/env}]
@@ -192,24 +194,33 @@
              :monad/val val})))))))
 
 (defn prw-lifters
-  [promise-impl]
-  {m.id/identity-ctx (fn [mv]
+  [to-promise-impl]
+  {[::m.id/Identity] (fn [mv]
                        (fn [{r :monad.reader/env}]
                          (p/resolved
-                          promise-impl
+                          to-promise-impl
                           {:monad.writer/output nil :monad/val mv})))
-   m.pr/promise-ctx (fn [mv]
-                      (fn [{r :monad.reader/env}]
-                        (p/then
-                         mv
-                         (fn [v]
-                           {:monad.writer/output nil :monad/val v}))))})
+
+   [::m.pr/Promise :type/*] (fn [mv]
+                              (fn [{r :monad.reader/env}]
+                                (let [d (p/deferred)]
+                                  (p/handle
+                                   mv
+                                   (fn [v error]
+                                     (if (nil? error)
+                                       (p/resolve!
+                                        d
+                                        {:monad.writer/output nil
+                                         :monad/val v})
+                                       (p/reject!
+                                        (prw-error error))))))))})
 
 (defn make-prw-ctx
   [promise-impl lifter]
   (PRW. promise-impl lifter))
 
-(def prw-lifter (l/create-atomic-lifter))
+(def prw-lifter (l/create-atomic-lifter-registry))
+
 (def prw-ctx (make-prw-ctx promesa/factory prw-lifter))
 
 (l/register-all prw-lifter prw-ctx (prw-lifters promesa/factory))

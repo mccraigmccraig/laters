@@ -25,6 +25,8 @@
 ;; state for RW, RWS and PRW and PRWS
 (deftype Writer [lifter]
   m.p/Monad
+  (-type [m]
+    [::Writer])
   (-bind [m mv f]
     (t/tag
      m

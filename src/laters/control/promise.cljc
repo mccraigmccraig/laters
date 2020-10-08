@@ -12,6 +12,8 @@
 
 (deftype Promise [promise-impl lifter]
   m.p/Monad
+  (-type [m]
+    (into [::Promise] (p/type promise-impl)))
   (-bind [m tmv f]
     (let [mv (l/lift-untag lifter m tmv)]
       (t/tag

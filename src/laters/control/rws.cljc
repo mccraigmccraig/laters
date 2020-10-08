@@ -12,6 +12,8 @@
 ;; reader+writer+state
 (deftype RWS [lifter]
   m.p/Monad
+  (-type [m]
+    [::RWS])
   (-bind [m mv f]
     (t/tag
      m

@@ -11,6 +11,8 @@
 
 (deftype State [lifter]
   m.p/Monad
+  (-type [m]
+    [::State])
   (-bind [m mv f]
     (t/tag
      m
