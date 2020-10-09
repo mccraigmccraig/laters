@@ -51,7 +51,7 @@
                         (t/untag mv)))
 
 
-   ;; this is wrong... mv is untagged in the current impl
+   ;; lift other promise types
    [::Promise :type/*] (fn [mv]
                          (let [d (p/deferred promise-impl)
                                from-promise-impl (-> mv t/ctx ctx.p/-promise-impl)]

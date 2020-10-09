@@ -225,11 +225,6 @@
                                    to-promise-impl))))
 
    ;; lift PRWs with other promise types
-
-   ;; TODO - the params of the lift fn need to expose the from-ctx - so that
-   ;; we can get to the particular impl which matched the wildcard
-   ;; probably easiest to pass the tagged mv to the lifters
-
    [::PRW :type/*] (fn [mv]
                      (fn [{r :monad.reader/env}]
                        (let [d (p/deferred to-promise-impl)

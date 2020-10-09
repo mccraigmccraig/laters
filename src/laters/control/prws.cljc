@@ -319,7 +319,7 @@
                                         (prws-error error))))
                                    from-promise-impl))))
 
-   ;; lift PRWSs with other promise types... this is wrong
+   ;; lift PRWSs with other promise types...
    [::PRWS :type/*] (fn [mv]
                       (fn [{r :monad.reader/env
                            st :monad.state/state}]
