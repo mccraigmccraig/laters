@@ -13,9 +13,11 @@
   (-executor [_]
     scheduler)
   (-resolved [_ v]
-    (SingleSubject/just v))
+    (Single/just v))
   (-rejected [_ err]
-    (SingleSubject/error err)))
+    (Single/error err))
+  (-deferred [_]
+    (SingleSubject/create)))
 
 (defn ss-flatten
   [out p]
@@ -72,6 +74,14 @@
               (.onError ss x))))))
      ss)))
 
+(defn ss-resolve!
+  [^SingleSubject p v]
+  (.onSuccess p v))
+
+(defn ss-reject!
+  [^SingleSubject p ^Throwable err]
+  (.onError p err))
+
 (defn ss-deref
   [p]
   (let [pp (promesa/deferred)]
@@ -90,6 +100,8 @@
   p/IPromise
   {:-then ss-then
    :-handle ss-handle
+   :-resolve! ss-resolve!
+   :-reject! ss-reject!
    :-deref ss-deref})
 
 (def factory (SingleSubjectPromiseFactory. nil))

@@ -23,6 +23,8 @@
   p/IPromise
   {:-then promesa/then
    :-handle promesa/handle
+   :-resolve! promesa/resolve!
+   :-reject! promesa/reject!
    #?@(:clj [:-deref clojure.core/deref])
    })
 
