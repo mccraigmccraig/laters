@@ -48,13 +48,17 @@
                         mv))})
 
 (defn make-promise-ctx
-  [promise-impl lifter]
-  (Promise. promise-impl lifter))
+  ([promise-impl]
+   (let [lifter-registry (l/create-atomic-lifter-registry)
+         ctx (make-promise-ctx promise-impl lifter-registry)]
+     (l/register-all lifter-registry ctx (promise-lifters promise-impl))
+     ctx))
+  ([promise-impl lifter]
+   (Promise. promise-impl lifter)))
 
-(def lifter-registry (l/create-atomic-lifter-registry))
-(def promise-ctx (make-promise-ctx promesa/default-impl lifter-registry))
+(def promise-ctx (make-promise-ctx promesa/default-impl))
 
-(l/register-all lifter-registry promise-ctx (promise-lifters promesa/default-impl))
+
 
 
 (comment

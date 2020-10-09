@@ -112,12 +112,21 @@
         :monad.state/state st'
         :monad/val nil}))))
 
-(def rws-lifter
-  {m.id/identity-ctx (fn [mv]
+(def rws-lifters
+  {[::m.id/Identity] (fn [mv]
                        (fn [{r :monad.reader/env w :monad.writer/output st :monad.state/state}]
                          {:monad.writer/output nil :monad.state/state st :monad/val mv}))})
 
-(def rws-ctx (RWS. rws-lifter))
+(defn make-rws-ctx
+  ([]
+   (let [lifter-registry (l/create-atomic-lifter-registry)
+         ctx (make-rws-ctx lifter-registry)]
+     (l/register-all lifter-registry ctx rws-lifters)
+     ctx))
+  ([lifter-registry]
+   (RWS. lifter-registry)))
+
+(def rws-ctx (make-rws-ctx))
 
 (defn run-rws
   [mv rws]

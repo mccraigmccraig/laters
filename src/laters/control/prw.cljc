@@ -222,14 +222,15 @@
                                    to-promise-impl))))})
 
 (defn make-prw-ctx
-  [promise-impl lifter]
-  (PRW. promise-impl lifter))
+  ([promise-impl]
+   (let [lifter-registry (l/create-atomic-lifter-registry)
+         ctx (make-prw-ctx promise-impl lifter-registry)]
+     (l/register-all lifter-registry ctx (prw-lifters promise-impl))
+     ctx))
+  ([promise-impl lifter-registry]
+   (PRW. promise-impl lifter-registry)))
 
-(def prw-lifter (l/create-atomic-lifter-registry))
-
-(def prw-ctx (make-prw-ctx promesa/default-impl prw-lifter))
-
-(l/register-all prw-lifter prw-ctx (prw-lifters promesa/default-impl))
+(def prw-ctx (make-prw-ctx promesa/default-impl))
 
 (m/deflets
   {prw-let laters.control.prw/prw-ctx})
@@ -250,7 +251,7 @@
   (require '[laters.concurrency.promise :as p])
   (require '[laters.concurrency.promise.rxjava :as rxjava])
 
-        @(m.prw/run-prw
+                @(m.prw/run-prw
     (m.prw/prw-let
      [{a :foo} (m.reader/ask)
       b (m.reader/asks :bar)

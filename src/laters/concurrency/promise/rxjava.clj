@@ -33,7 +33,7 @@
 
 (defn ss-then
   ([p f] (ss-then p f nil))
-  ([p f impl]
+  ([p f ^SingleSubjectPromiseImpl impl]
    (let [ss (SingleSubject/create)]
      (when-let [scheduler (some-> impl .scheduler)]
        (.observeOn ss scheduler))
@@ -52,7 +52,7 @@
 
 (defn ss-handle
   ([p f] (ss-handle p f nil))
-  ([p f impl]
+  ([p f ^SingleSubjectPromiseImpl impl]
    (let [ss (SingleSubject/create)]
      (when-let [scheduler (some-> impl .scheduler)]
        (.observeOn ss scheduler))
@@ -102,4 +102,8 @@
    :-reject! ss-reject!
    :-deref ss-deref})
 
-(def default-impl (SingleSubjectPromiseImpl. nil))
+(defn make-single-subject-promise-impl
+  [scheduler]
+  (SingleSubjectPromiseImpl. scheduler))
+
+(def default-impl (make-single-subject-promise-impl nil))

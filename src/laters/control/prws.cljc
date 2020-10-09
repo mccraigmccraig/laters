@@ -314,14 +314,15 @@
                                    to-promise-impl))))})
 
 (defn make-prws-ctx
-  [promise-impl lifter]
-  (PRWS. promise-impl lifter))
+  ([promise-impl]
+   (let [lifter-registry (l/create-atomic-lifter-registry)
+         ctx (make-prws-ctx promise-impl lifter-registry)]
+     (l/register-all lifter-registry ctx (prws-lifters promise-impl))
+     ctx))
+  ([promise-impl lifter-registry]
+   (PRWS. promise-impl lifter-registry)))
 
-(def lifter-registry (l/create-atomic-lifter-registry))
-
-(def prws-ctx (make-prws-ctx promesa/default-impl lifter-registry))
-
-(l/register-all lifter-registry prws-ctx (prws-lifters promesa/default-impl))
+(def prws-ctx (make-prws-ctx promesa/default-impl))
 
 (m/deflets
   {prws-let laters.control.prws/prws-ctx})

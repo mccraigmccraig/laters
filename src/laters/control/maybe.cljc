@@ -29,10 +29,19 @@
   []
   `(-nothing ~'this-monad##))
 
-(def maybe-lifter
-  {m.id/identity-ctx identity})
+(def maybe-lifters
+  {[::m.id/Identity] identity})
 
-(def maybe-ctx (Maybe. maybe-lifter))
+(defn make-maybe-ctx
+  ([]
+   (let [lifter-registry (l/create-atomic-lifter-registry)
+         ctx (make-maybe-ctx lifter-registry)]
+     (l/register-all lifter-registry ctx maybe-lifters)
+     ctx))
+  ([lifter-registry]
+   (Maybe. lifter-registry)))
+
+(def maybe-ctx (make-maybe-ctx))
 
 (defmacro maybe-let
   [& body]

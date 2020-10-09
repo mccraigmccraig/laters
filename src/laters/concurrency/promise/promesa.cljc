@@ -5,7 +5,6 @@
   (:import
    [java.util.concurrent CompletableFuture]))
 
-
 (deftype PromesaPromiseImpl [executor]
   p/IPromiseImpl
   (-type [ctx]
@@ -42,4 +41,8 @@
    #?@(:clj [:-deref clojure.core/deref])
    })
 
-(def default-impl (PromesaPromiseImpl. nil))
+(defn make-promesa-promise-impl
+  [executor]
+  (PromesaPromiseImpl. executor))
+
+(def default-impl (make-promesa-promise-impl nil))
