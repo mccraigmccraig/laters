@@ -98,7 +98,7 @@
                   (m.p/-type m)
                   (m.p/-type (t.p/-ctx mv)))]
       (if (some? lifter)
-        (p/-lift-untagged lifter (t/untag mv))
+        (p/-lift-untagged lifter mv)
 
         (throw
          (ex-info

@@ -30,7 +30,7 @@
   `(-nothing ~'this-monad##))
 
 (def maybe-lifters
-  {[::m.id/Identity] identity})
+  {[::m.id/Identity] t/untag})
 
 (defn make-maybe-ctx
   ([]

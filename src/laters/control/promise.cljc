@@ -48,13 +48,15 @@
   {[::m.id/Identity] (fn [mv]
                        (p/resolved
                         promise-impl
-                        mv))
+                        (t/untag mv)))
 
+
+   ;; this is wrong... mv is untagged in the current impl
    [::Promise :type/*] (fn [mv]
                          (let [d (p/deferred promise-impl)
                                from-promise-impl (-> mv t/ctx ctx.p/-promise-impl)]
                            (p/handle
-                            mv
+                            (t/untag mv)
                             (fn [v error]
                               (if (nil? error)
                                 (p/resolve! d v)

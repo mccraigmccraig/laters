@@ -77,7 +77,7 @@
   {[::m.id/Identity] (fn [mv]
                        (fn [{r :monad.reader/env}]
                          {:monad.writer/output nil
-                          :monad/val mv}))})
+                          :monad/val (t/untag mv)}))})
 
 (defn make-rw-ctx
   ([]

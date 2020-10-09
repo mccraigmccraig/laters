@@ -206,14 +206,14 @@
                        (fn [{r :monad.reader/env}]
                          (p/resolved
                           to-promise-impl
-                          {:monad.writer/output nil :monad/val mv})))
+                          {:monad.writer/output nil :monad/val (t/untag mv)})))
 
    ;; lift any recognised type of plain promise!
    [::m.pr/Promise :type/*] (fn [mv]
                               (fn [{r :monad.reader/env}]
                                 (let [d (p/deferred to-promise-impl)]
                                   (p/handle
-                                   mv
+                                   (t/untag mv)
                                    (fn [v error]
                                      (if (nil? error)
                                        (p/resolve!
@@ -225,12 +225,22 @@
                                    to-promise-impl))))
 
    ;; lift PRWs with other promise types
+
+   ;; TODO - the params of the lift fn need to expose the from-ctx - so that
+   ;; we can get to the particular impl which matched the wildcard
+   ;; probably easiest to pass the tagged mv to the lifters
+
    [::PRW :type/*] (fn [mv]
                      (fn [{r :monad.reader/env}]
                        (let [d (p/deferred to-promise-impl)
-                             from-promise-impl (-> mv t/ctx pctx.p/-promise-impl)]
+                             from-promise-impl (-> mv t/ctx pctx.p/-promise-impl)
+
+                             ;; get the result in the from-promise-impl
+                             p ((t/untag mv) {:monad.reader/env r})]
+
+                         ;; then transfer it to our own promise-impl
                          (p/handle
-                          mv
+                          p
                           (fn [v error]
                             (if (nil? error)
                               (p/resolve! d v)

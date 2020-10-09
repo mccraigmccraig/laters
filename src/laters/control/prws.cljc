@@ -298,7 +298,7 @@
                           to-promise-impl
                           {:monad.writer/output nil
                            :monad.state/state st
-                           :monad/val mv})))
+                           :monad/val (t/untag mv)})))
    [::m.pr/Promise :type/*] (fn [mv]
                               (fn [{r :monad.reader/env
                                    st :monad.state/state}]
@@ -307,7 +307,7 @@
                                                             t/ctx
                                                             pctx.p/-promise-impl)]
                                   (p/handle
-                                   mv
+                                   (t/untag mv)
                                    (fn [v error]
                                      (if (nil? error)
                                        (p/resolve!
@@ -317,7 +317,27 @@
                                          :monad/val v})
                                        (p/reject!
                                         (prws-error error))))
-                                   from-promise-impl))))})
+                                   from-promise-impl))))
+
+   ;; lift PRWSs with other promise types... this is wrong
+   [::PRWS :type/*] (fn [mv]
+                      (fn [{r :monad.reader/env
+                           st :monad.state/state}]
+                        (let [d (p/deferred to-promise-impl)
+                              from-promise-impl (-> mv
+                                                    t/ctx
+                                                    pctx.p/-promise-impl)
+                              ;; get the result in the from-promise-impl
+                              p ((t/untag mv) {:monad.reader/env r
+                                               :monad.state/state st})]
+                          ;; copy it to our own promise-impl
+                          (p/handle
+                           p
+                           (fn [v error]
+                             (if (nil? error)
+                               (p/resolve! d v)
+                               (p/reject! d error)))
+                           from-promise-impl))))})
 
 (defn make-prws-ctx
   ([promise-impl]

@@ -114,8 +114,12 @@
 
 (def rws-lifters
   {[::m.id/Identity] (fn [mv]
-                       (fn [{r :monad.reader/env w :monad.writer/output st :monad.state/state}]
-                         {:monad.writer/output nil :monad.state/state st :monad/val mv}))})
+                       (fn [{r :monad.reader/env
+                            w :monad.writer/output
+                            st :monad.state/state}]
+                         {:monad.writer/output nil
+                          :monad.state/state st
+                          :monad/val (t/untag mv)}))})
 
 (defn make-rws-ctx
   ([]
