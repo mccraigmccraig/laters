@@ -7,6 +7,10 @@
   (-ctx [_] ctx)
   (-mv [_] mv))
 
+(defn ctx
+  [mv]
+  (p/-ctx mv))
+
 (defn tag
   [ctx mv]
   (Tagged. ctx mv))

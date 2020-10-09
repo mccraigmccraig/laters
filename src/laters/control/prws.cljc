@@ -10,6 +10,7 @@
    [laters.control.writer :as m.w]
    [laters.control.state :as m.st]
    [laters.control.promise :as m.pr]
+   [laters.control.promise.protocols :as pctx.p]
    [laters.concurrency.promise :as p]
    [laters.concurrency.promise.promesa :as promesa])
   (:import
@@ -58,6 +59,8 @@
 
 ;; ({:monad.reader/env r :monad.state/state st})->Promise<{:monad/val v :monad.writer/output w :monad.state/state st}
 (deftype PRWS [promise-impl lifter]
+  pctx.p/IPromiseCtx
+  (-promise-impl [_] promise-impl)
   m.p/Monad
   (-type [m]
     (into [::PRWS] (p/type promise-impl)))
@@ -299,7 +302,10 @@
    [::m.pr/Promise :type/*] (fn [mv]
                               (fn [{r :monad.reader/env
                                    st :monad.state/state}]
-                                (let [d (p/deferred to-promise-impl)]
+                                (let [d (p/deferred to-promise-impl)
+                                      from-promise-impl (-> mv
+                                                            t/ctx
+                                                            pctx.p/-promise-impl)]
                                   (p/handle
                                    mv
                                    (fn [v error]
@@ -311,7 +317,7 @@
                                          :monad/val v})
                                        (p/reject!
                                         (prws-error error))))
-                                   to-promise-impl))))})
+                                   from-promise-impl))))})
 
 (defn make-prws-ctx
   ([promise-impl]

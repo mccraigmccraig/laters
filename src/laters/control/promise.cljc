@@ -6,11 +6,14 @@
    [laters.abstract.lifter :as l]
    [laters.abstract.error.protocols :as e.p]
    [laters.control.identity :as m.id]
+   [laters.control.promise.protocols :as ctx.p]
    [laters.concurrency.promise :as p]
    [laters.concurrency.promise.promesa :as promesa]))
 
 
 (deftype Promise [promise-impl lifter]
+  ctx.p/IPromiseCtx
+  (-promise-impl [_] promise-impl)
   m.p/Monad
   (-type [m]
     (into [::Promise] (p/type promise-impl)))
@@ -45,7 +48,18 @@
   {[::m.id/Identity] (fn [mv]
                        (p/resolved
                         promise-impl
-                        mv))})
+                        mv))
+
+   [::Promise :type/*] (fn [mv]
+                         (let [d (p/deferred promise-impl)
+                               from-promise-impl (-> mv t/ctx ctx.p/-promise-impl)]
+                           (p/handle
+                            mv
+                            (fn [v error]
+                              (if (nil? error)
+                                (p/resolve! d v)
+                                (p/reject! d error)))
+                            from-promise-impl)))})
 
 (defn make-promise-ctx
   ([promise-impl]
