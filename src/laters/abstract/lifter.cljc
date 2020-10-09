@@ -48,8 +48,9 @@
 ;; be established e.g. P[promesa]<->PRW[RxJava] or PRW[*]<->PRWS[*]
 (defrecord AtomicLifterRegistry [lifters-a]
   p/ILifterRegistry
-  (-match-lifter [_ m mv]
-    (match-lifter* (get @lifters-a (m.p/-type m) {}) m mv))
+  (-match-lifter [_ to-ctx-type from-ctx-type]
+    (match-lifter* (get @lifters-a to-ctx-type {})
+                   from-ctx-type))
   (-register [_ to-ctx-type from-ctx-type lifter]
     (swap!
      lifters-a
@@ -92,7 +93,10 @@
     (t/untag mv)
 
     (some? lifter-registry)
-    (let [lifter (p/-match-lifter lifter-registry m mv)]
+    (let [lifter (p/-match-lifter
+                  lifter-registry
+                  (m.p/-type m)
+                  (m.p/-type (t.p/-ctx mv)))]
       (if (some? lifter)
         (p/-lift-untagged lifter (t/untag mv))
 
