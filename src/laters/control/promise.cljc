@@ -21,7 +21,8 @@
        (p/then
         mv
         (fn [v]
-          (l/lift-untag lifter m (f v)))))))
+          (l/lift-untag lifter m (f v)))
+        promise-impl))))
   (-return [m v]
     (t/tag m (p/resolved promise-impl v)))
   e.p/MonadError
@@ -36,11 +37,12 @@
       (fn [success error]
         (if (some? error)
           (l/lift-untag lifter m (handler error))
-          success))))))
+          success))
+      promise-impl))))
 
-(defn make-promise-lifter
+(defn promise-lifters
   [promise-impl]
-  {m.id/identity-ctx (fn [mv]
+  {[::m.id/Identity] (fn [mv]
                        (p/resolved
                         promise-impl
                         mv))})
@@ -49,8 +51,11 @@
   [promise-impl lifter]
   (Promise. promise-impl lifter))
 
-(def promise-lifter (make-promise-lifter promesa/factory))
-(def promise-ctx (make-promise-ctx promesa/factory promise-lifter))
+(def lifter-registry (l/create-atomic-lifter-registry))
+(def promise-ctx (make-promise-ctx promesa/default-impl lifter-registry))
+
+(l/register-all lifter-registry promise-ctx (promise-lifters promesa/default-impl))
+
 
 (comment
   (require '[laters.abstract.monad :as m])

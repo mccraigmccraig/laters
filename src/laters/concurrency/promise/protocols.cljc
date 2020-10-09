@@ -1,10 +1,8 @@
 (ns laters.concurrency.promise.protocols)
 
-(defprotocol IPromiseFactory
+(defprotocol IPromiseImpl
   (-type [_]
     "a keyword describing the type of promises")
-  (-executor [_]
-    "a default executor to use when composing promises, or nil")
 
   (-resolved [_ v]
     "make a resolved promise")
@@ -20,11 +18,11 @@
     [p err])
   (-then
     [p f]
-    [p f executor]
+    [p f impl]
     "f is a (fn [success-val])")
   (-handle
     [p f]
-    [p f executor]
+    [p f impl]
     "f is a (fn [success-val error] ...)")
   #?(:clj (-deref [p])))
 

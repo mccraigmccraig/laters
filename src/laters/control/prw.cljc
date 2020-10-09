@@ -79,7 +79,9 @@
                  (p/resolved
                   promise-impl
                   {:monad.writer/output ((fnil into []) w w')
-                   :monad/val v'}))))))))))
+                   :monad/val v'})))
+             promise-impl)))
+        promise-impl))))
   (-return [m v]
     (t/tag
      m
@@ -180,7 +182,8 @@
              v :monad/val
              :as lv}]
           {:monad.writer/output w
-           :monad/val lv})))))
+           :monad/val lv})
+        promise-impl))))
   (-pass [m mv]
     (t/tag
      m
@@ -191,7 +194,8 @@
              pass-val :monad/val}]
           (let [[val f] (m.w/-as-vec pass-val)]
             {:monad.writer/output (f w)
-             :monad/val val})))))))
+             :monad/val val}))
+        promise-impl)))))
 
 (defn prw-lifters
   [to-promise-impl]
@@ -214,7 +218,8 @@
                                         {:monad.writer/output nil
                                          :monad/val v})
                                        (p/reject!
-                                        (prw-error error))))))))})
+                                        (prw-error error))))
+                                   to-promise-impl))))})
 
 (defn make-prw-ctx
   [promise-impl lifter]
@@ -222,9 +227,9 @@
 
 (def prw-lifter (l/create-atomic-lifter-registry))
 
-(def prw-ctx (make-prw-ctx promesa/factory prw-lifter))
+(def prw-ctx (make-prw-ctx promesa/default-impl prw-lifter))
 
-(l/register-all prw-lifter prw-ctx (prw-lifters promesa/factory))
+(l/register-all prw-lifter prw-ctx (prw-lifters promesa/default-impl))
 
 (m/deflets
   {prw-let laters.control.prw/prw-ctx})
@@ -245,7 +250,7 @@
   (require '[laters.concurrency.promise :as p])
   (require '[laters.concurrency.promise.rxjava :as rxjava])
 
-  @(m.prw/run-prw
+        @(m.prw/run-prw
     (m.prw/prw-let
      [{a :foo} (m.reader/ask)
       b (m.reader/asks :bar)

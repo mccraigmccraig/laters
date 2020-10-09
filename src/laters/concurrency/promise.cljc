@@ -28,12 +28,16 @@
   (pr.p/-reject! p err))
 
 (defn then
-  [p f]
-  (pr.p/-then p f))
+  ([p f]
+   (pr.p/-then p f))
+  ([p f impl]
+   (pr.p/-then p f impl)))
 
 (defn handle
-  [p f]
-  (pr.p/-handle p f))
+  ([p f]
+   (pr.p/-handle p f))
+  ([p f impl]
+   (pr.p/-handle p f impl)))
 
 (defn inspect
   [p]

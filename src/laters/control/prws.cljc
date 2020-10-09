@@ -109,7 +109,9 @@
                       promise-impl
                       {:monad.writer/output ((fnil into []) w w')
                        :monad.state/state st''
-                       :monad/val v'}))))))))))))
+                       :monad/val v'}))))
+               promise-impl))))
+        promise-impl))))
   (-return [m v]
     (t/tag
      m
@@ -177,9 +179,11 @@
                     promise-impl
                     {:monad.writer/output ((fnil into []) error-output r-w)
                      :monad.state/state r-st
-                     :monad/val r-v})))))
+                     :monad/val r-v})))
+               promise-impl))
 
-            success))))))
+            success))
+        promise-impl))))
 
 
   m.p/MonadZero
@@ -239,7 +243,8 @@
              :as lv}]
           {:monad.writer/output w
            :monad.state/state st'
-           :monad/val lv})))))
+           :monad/val lv})
+        promise-impl))))
   (-pass [m mv]
     (t/tag
      m
@@ -256,7 +261,8 @@
           (let [[val f] (m.w/-as-vec pass-val)]
             {:monad.writer/output (f w)
              :monad.state/state st'
-             :monad/val val}))))))
+             :monad/val val}))
+        promise-impl))))
 
   m.st/MonadState
   (-get-state [m]
@@ -281,34 +287,41 @@
          :monad/val nil})))))
 
 (defn prws-lifters
-  [promise-impl]
-  {m.id/identity-ctx (fn [mv]
+  [to-promise-impl]
+  {[::m.id/Identity] (fn [mv]
                        (fn [{r :monad.reader/env
                             st :monad.state/state}]
                          (p/resolved
-                          promise-impl
+                          to-promise-impl
                           {:monad.writer/output nil
                            :monad.state/state st
                            :monad/val mv})))
-   m.pr/promise-ctx (fn [mv]
-                      (fn [{r :monad.reader/env
-                           st :monad.state/state}]
-                        (p/then
-                         mv
-                         (fn [v]
-                           {:monad.writer/output nil
-                            :monad.state/state st
-                            :monad/val v}))))})
+   [::m.pr/Promise :type/*] (fn [mv]
+                              (fn [{r :monad.reader/env
+                                   st :monad.state/state}]
+                                (let [d (p/deferred to-promise-impl)]
+                                  (p/handle
+                                   mv
+                                   (fn [v error]
+                                     (if (nil? error)
+                                       (p/resolve!
+                                        d
+                                        {:monad.writer/output nil
+                                         :monad.state/state st
+                                         :monad/val v})
+                                       (p/reject!
+                                        (prws-error error))))
+                                   to-promise-impl))))})
 
 (defn make-prws-ctx
   [promise-impl lifter]
   (PRWS. promise-impl lifter))
 
-(def prws-lifter (l/create-atomic-lifter-registry))
+(def lifter-registry (l/create-atomic-lifter-registry))
 
-(def prws-ctx (make-prws-ctx promesa/factory prws-lifter))
+(def prws-ctx (make-prws-ctx promesa/default-impl lifter-registry))
 
-(l/register-all prws-lifter prws-ctx (prws-lifters promesa/factory))
+(l/register-all lifter-registry prws-ctx (prws-lifters promesa/default-impl))
 
 (m/deflets
   {prws-let laters.control.prws/prws-ctx})
