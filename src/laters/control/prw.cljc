@@ -204,7 +204,7 @@
    ;; lift any recognised type of plain promise!
    [::m.pr/Promise :type/*] (fn [mv]
                               (fn [{r :monad.reader/env}]
-                                (let [d (p/deferred)]
+                                (let [d (p/deferred to-promise-impl)]
                                   (p/handle
                                    mv
                                    (fn [v error]
@@ -245,7 +245,7 @@
   (require '[laters.concurrency.promise :as p])
   (require '[laters.concurrency.promise.rxjava :as rxjava])
 
-    @(m.prw/run-prw
+  @(m.prw/run-prw
     (m.prw/prw-let
      [{a :foo} (m.reader/ask)
       b (m.reader/asks :bar)
