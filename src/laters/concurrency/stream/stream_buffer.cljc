@@ -28,7 +28,7 @@
    ::handler nil
    ::buffer (ArrayDeque.)
    ::park-q (ArrayDeque.)
-   ::emit-q (ArrayDeque.)
+   ::emit-slot (ArrayDeque.)
    ::emitting? false
    ::error nil})
 
@@ -74,11 +74,11 @@
         ::none))))
 
 (defn next-emit
-  [park-q buffer emit-q]
+  [park-q buffer emit-slot]
   (cond
     ;; check queued emits first
-    (> (count emit-q) 0)
-    (.poll emit-q)
+    (> (count emit-slot) 0)
+    (.poll emit-slot)
 
     ;; if there are no queued emits, try the buffer
     ;; if space gets freed in the buffer, fill it from the
@@ -112,7 +112,7 @@
              handler ::handler
              buffer ::buffer
              park-q ::park-q
-             emit-q ::emit-q
+             emit-slot ::emit-slot
              error ::error
              :as state} (deref state-a)]
         (try
@@ -125,7 +125,7 @@
              (some? handler)
              (> demand 0))
             ;; there is demand, but is there anything to emit
-            (let [v (next-emit park-q buffer emit-q)]
+            (let [v (next-emit park-q buffer emit-slot)]
 
               (if (= ::none v) ;; nothing to emit
                 (do
@@ -255,24 +255,25 @@
              handler ::handler
              buffer ::buffer
              park-q ::park-q
-             emit-q ::emit-q
+             emit-slot ::emit-slot
              error ::error
              :as state} @state-a]
         (cond (and
                (= ::open stream-state)
                (empty? park-q)
                (empty? buffer)
+               (empty? emit-slot) ;; single holding slot
                (some? handler)
                (> demand 0))
               ;; emit straight to the handler
               (let [completion-p (promise/deferred promise-impl)]
-                (.add emit-q v)
+                (.add emit-slot v)
                 (do-emit this completion-p)
                 completion-p)
 
               (and
                (= ::open stream-state)
-               (empty? park-q)
+               (empty? park-q) ;; park-q must be empty to buffer
                (or
                 (< (count buffer) buffer-size)
                 (and (> (count buffer) 0)
@@ -311,7 +312,7 @@
                                     promise-impl)
                                    completion-p)]
 
-                (.add emit-q {::completion-p completion-p
+                (.add emit-slot {::completion-p completion-p
                               ::value v})
                 ;; throw away the emit completion - the response
                 ;; completes when the value gets added to the buffer
