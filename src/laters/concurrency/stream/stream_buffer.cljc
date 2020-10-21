@@ -62,8 +62,8 @@
 
 (defn next-parked
   [park-q]
-  (loop [{completion-p :completion-p
-          v :value} (.poll park-q)]
+  (loop [{completion-p ::completion-p
+          v ::value} (.poll park-q)]
     (if (promise/resolve! completion-p true)
       ;; resolve! succeeded, so completion-p had not timed out
       v
@@ -234,14 +234,16 @@
 
   stream.p/IStreamBuffer
   (-request! [this n]
-
-    ;;TODO what to do if we are not ::open
-
     (locking lock
-      (swap! state-a update ::demand #(+ % n))
-      (do-emit this (promise/deferred))
-      ;; should this return true ?
-      true))
+      (let [{stream-state ::stream-state} @state-a]
+        (if (not (contains? terminal-states stream-state))
+          (do
+            (swap! state-a update ::demand #(+ % n))
+            (do-emit this (promise/deferred))
+            ;; should this return true ?
+            true)
+
+          false))))
 
   stream.p/IWriteStream
   (-put! [this v] (stream.p/-put! this v nil nil))
@@ -309,8 +311,8 @@
                                     promise-impl)
                                    completion-p)]
 
-                (.add emit-q {:completion-p completion-p
-                              :value v})
+                (.add emit-q {::completion-p completion-p
+                              ::value v})
                 ;; throw away the emit completion - the response
                 ;; completes when the value gets added to the buffer
                 ;; or handled
@@ -340,27 +342,37 @@
   (-error! [this err]
     (locking lock
       (let [{stream-state ::stream-state} @state-a]
-        (when (not (contains? terminal-states stream-state))
-          (swap! state-a
-                 assoc
-                 ::stream-state ::errored
-                 ::error err)
-          (when-let [handler (-> state-a deref ::handler)]
-            (stream.p/-error handler this err))))))
+        (if (not (contains? terminal-states stream-state))
+          (do
+            (swap! state-a
+                   assoc
+                   ::stream-state ::errored
+                   ::error err)
+            (when-let [handler (-> state-a deref ::handler)]
+              (stream.p/-error handler this err))
+            true)
+
+          false))))
   (-close! [this]
     (locking lock
       (let [{stream-state ::stream-state} @state-a]
-        (when (not (contains? closed-or-terminal-states stream-state))
-          (swap! state-a
-                 assoc
-                 ::stream-state ::closed)
-          (when-let [handler (-> state-a deref ::handler)]
-            (stream.p/-close handler this))))))
+        (if (not (contains? closed-or-terminal-states stream-state))
+          (do
+            (swap! state-a
+                   assoc
+                   ::stream-state ::closed)
+            (when-let [handler (-> state-a deref ::handler)]
+              (stream.p/-close handler this))
+            true)
+
+          false))))
   (-set-handler [this handler]
     (locking lock
       (if handler
         (if (some? (-> state-a deref ::handler))
+          ;; TODO what should we do if a handler is already set ?
           (throw (ex-info "handler already set" {:stream-buffer this}))
+
           (do
             (swap! state-a assoc ::handler handler)
             (let [{stream-state ::stream-state
@@ -372,7 +384,10 @@
                 ::open nil
                 (throw (ex-info "unknown stream-state" {::stream-state stream-state})))
               true)))
-        (swap! state-a assoc ::handler nil)))))
+
+        (do
+          (swap! state-a assoc ::handler nil)
+          true)))))
 
 
 (defn stream-buffer
