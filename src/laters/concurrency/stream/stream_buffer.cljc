@@ -11,7 +11,10 @@
 ;; modelled after vertx io.vertx.core.streams.impl.InboundBuffer
 ;; https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/streams/impl/InboundBuffer.java
 
-(def states [::open ::closed ::drained :errored])
+(def states [::open ::closed ::drained ::errored])
+
+(def terminal-states #{::drained ::errored})
+(def closed-or-terminal-states (conj terminal-states ::closed))
 
 (def on-overflow [:stream.overflow/park
                   :stream.overflow/error
@@ -118,8 +121,7 @@
           (cond
 
             (and
-             (not (#{::drained
-                     ::errored} stream-state))
+             (not (contains? terminal-states stream-state))
              (some? handler)
              (> demand 0))
             ;; there is demand, but is there anything to emit
@@ -190,8 +192,6 @@
                ::none (promise/resolve! completion-p true)
                ::error (do (stream.p/-error! sb v)
                            (promise/reject! completion-p v))
-               ::throwable (do (stream.p/-error! sb v)
-                               (promise/reject! completion-p v))
                (promise/reject!
                 completion-p
                 (ex-info "bad case:" [k v])))))
@@ -204,8 +204,6 @@
             ::none (promise/resolve! completion-p true)
             ::error (do (stream.p/-error! sb v)
                         (promise/reject! completion-p v))
-            ::throwable (do (stream.p/-error! sb v)
-                            (promise/reject! completion-p v))
             (promise/reject!
              completion-p
              (ex-info "do-emit bad case:" {:state-buffer sb
@@ -236,6 +234,9 @@
 
   stream.p/IStreamBuffer
   (-request! [this n]
+
+    ;;TODO what to do if we are not ::open
+
     (locking lock
       (swap! state-a update :demand #(+ % n))
       (do-emit this (promise/deferred))
@@ -261,6 +262,7 @@
                (empty? buffer)
                (some? handler)
                (> demand 0))
+              ;; emit straight to the handler
               (let [completion-p (promise/deferred promise-impl)]
                 (.add emit-q v)
                 (do-emit this completion-p)
@@ -275,6 +277,7 @@
                      (or
                       (= on-overflow :stream.overflow/drop-latest)
                       (= on-overflow :stream.overflow/drop-oldest)))))
+              ;; buffer, maybe with overflow behaviour
               (let [completion-p (promise/deferred promise-impl)]
                 (cond
                   (< (count buffer) buffer-size)
@@ -296,6 +299,7 @@
                (= ::open stream-state)
                (= on-overflow :stream.overflow/park)
                (< (count park-q) park-q-size))
+              ;; park
               (let [completion-p (promise/deferred promise-impl)
                     completion-p (if timeout
                                    (promise/timeout
@@ -316,30 +320,42 @@
 
               (and
                (= ::open stream-state))
-              (promise/rejected
-               promise-impl
-               (ex-info "full!" {:v v}))
+              ;; no space even to park - reject and error the sream
+              (do
+                (let [err (ex-info "full!" {:v v})]
+                  (stream.p/-error! this err)
+                  (promise/rejected promise-impl err)))
 
               (= ::closed stream-state)
+              ;; stream is closed
               (promise/resolved false)
 
               (= :errored stream-state)
-              (promise/rejected error)))))
+              ;; stream is errored
+              (promise/rejected error)
+
+              :else
+              (promise/rejected (ex-info "unknown stream-state"
+                                         {:stream-state stream-state}))))))
   (-error! [this err]
     (locking lock
-      (swap! state-a
-             assoc
-             :stream-state ::errored
-             :error err)
-      (when-let [handler (-> state-a deref :handler)]
-        (stream.p/-error handler this err))))
+      (let [{stream-state :stream-state} @state-a]
+        (when (not (contains? terminal-states stream-state))
+          (swap! state-a
+                 assoc
+                 :stream-state ::errored
+                 :error err)
+          (when-let [handler (-> state-a deref :handler)]
+            (stream.p/-error handler this err))))))
   (-close! [this]
     (locking lock
-      (swap! state-a
-             assoc
-             :stream-state ::closed)
-      (when-let [handler (-> state-a deref :handler)]
-        (stream.p/-close handler this))))
+      (let [{stream-state :stream-state} @state-a]
+        (when (not (contains? closed-or-terminal-states stream-state))
+          (swap! state-a
+                 assoc
+                 :stream-state ::closed)
+          (when-let [handler (-> state-a deref :handler)]
+            (stream.p/-close handler this))))))
   (-set-handler [this handler]
     (locking lock
       (if handler
