@@ -131,7 +131,7 @@
                 (do
                   (when (= ::closed stream-state)
                     (swap! state-a assoc :stream-state ::drained))
-                  [::none])
+                  [::done])
 
                 (do ;; an actual emit!
                   (when (< demand Integer/MAX_VALUE)
@@ -153,7 +153,7 @@
             [::error error]
 
             (= ::drained stream-state)
-            [::none]
+            [::done]
 
             :else
             (throw (ex-info "bad state" state)))
@@ -164,7 +164,7 @@
             (swap! state-a assoc :emitting false))))
 
       ;; we're already emitting
-      [::none])))
+      [::done])))
 
 (defn do-emit-task
   "emit as much requested demand as is currently available. keep on
@@ -189,7 +189,7 @@
               error)
              (case k
                ::emitted-one (do-emit-task sb completion-p)
-               ::none (promise/resolve! completion-p true)
+               ::done (promise/resolve! completion-p true)
                ::error (do (stream.p/-error! sb v)
                            (promise/reject! completion-p v))
                (promise/reject!
@@ -201,7 +201,7 @@
         (let [[k v] r]
           (case k
             ::emitted-one (recur (do-emit-one sb))
-            ::none (promise/resolve! completion-p true)
+            ::done (promise/resolve! completion-p true)
             ::error (do (stream.p/-error! sb v)
                         (promise/reject! completion-p v))
             (promise/reject!
