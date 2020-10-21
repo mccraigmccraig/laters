@@ -75,14 +75,15 @@
     "signal the stream is ended and put it in a terminal state"))
 
 (defprotocol IStreamBuffer
+  (-set-handler [this handler])
   (-request!
     [this n]
     "request the delivery of n objects"))
 
 (defprotocol IStreamBufferHandler
-  (-handle [p v])
-  (-complete [p])
-  (-error [p err]))
+  (-handle [p sb v])
+  (-close [p sb])
+  (-error [p sb err]))
 
 (defprotocol IReadStream
   (-take!

@@ -135,7 +135,7 @@
                   (when (< demand Integer/MAX_VALUE)
                     (swap! state-a update :demand dec))
 
-                  (let [r (handler v)]
+                  (let [r (stream.p/-handle handler sb v)]
                     (if (promise/promise? r)
                       (promise/handle
                        r
@@ -319,16 +319,36 @@
               (= :errored stream-state)
               (promise/rejected error)))))
   (-error! [this err]
-    (locking this
+    (locking lock
       (swap! state-a
              assoc
              :stream-state ::errored
-             :error err)))
+             :error err)
+      (when-let [handler (-> state-a deref :handler)]
+        (stream.p/-error handler this err))))
   (-close! [this]
-    (locking this
+    (locking lock
       (swap! state-a
              assoc
-             :stream-state ::closed))))
+             :stream-state ::closed)
+      (when-let [handler (-> state-a deref :handler)]
+        (stream.p/-close handler this))))
+  (-set-handler [this handler]
+    (locking lock
+      (if-let [h (-> state-a deref :handler)]
+        (stream.p/-error handler this (ex-info "handler already set" {:stream-buffer this}))
+        (do
+          (swap! state-a assoc :handler handler)
+          (when handler
+            (let [{stream-state :stream-state
+                   err :error} @state-a]
+              (case stream-state
+                ::closed (do-emit this (promise/deferred promise-impl))
+                ::drained (stream.p/-close handler this)
+                ::errored (stream.p/-error handler this err)
+                ::open nil
+                (throw (ex-info "unknown stream-state" {:stream-state stream-state})))
+              true)))))))
 
 
 (defn stream-buffer
