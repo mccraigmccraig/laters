@@ -13,6 +13,11 @@
 
 (def states [::open ::closed ::drained :errored])
 
+(def on-overflow [:stream.overflow/park
+                  :stream.overflow/error
+                  :stream.overflow/drop-oldest
+                  :stream.overflow/drop-latest])
+
 (defn initial-state
   [buffer-size park-q-size]
   {:stream-state ::open
@@ -124,6 +129,7 @@
 
 
 (deftype StreamBuffer [promise-impl
+                       on-overflow
                        buffer-size
                        park-q-size
                        lock
@@ -161,16 +167,36 @@
               (and
                (= ::open stream-state)
                (empty? park-q)
-               (< (count buffer) buffer-size))
+               (or
+                (< (count buffer) buffer-size)
+                (and (> (count buffer) 0)
+                     (or
+                      (= on-overflow :stream.overflow/drop-latest)
+                      (= on-overflow :stream.overflow/drop-oldest)))))
               (let [completion-p (promise/deferred promise-impl)]
-                (.add buffer v)
+                (cond
+                  (< (count buffer) buffer-size)
+                  (.add buffer v)
+
+                  (= on-overflow :stream.overflow/drop-latest)
+                  (do
+                    (.pop buffer)
+                    (.add buffer v))
+
+                  (= on-overflow :stream.overflow/drop-oldest)
+                  (do
+                    (.poll buffer)
+                    (.add buffer v)))
+
                 (do-emit this completion-p)
+
                 (promise/then
                  completion-p
                  (constantly true)))
 
               (and
                (= ::open stream-state)
+               (= on-overflow :stream.overflow/park)
                (< (count park-q) park-q-size))
               (let [completion-p (promise/deferred promise-impl)
                     completion-p (if timeout
@@ -190,7 +216,7 @@
                (= ::open stream-state))
               (promise/rejected
                promise-impl
-               (ex-info "park-q full" {:v v}))
+               (ex-info "full!" {:v v}))
 
 
               (= ::closed stream-state)
@@ -213,16 +239,19 @@
 
 (defn stream-buffer
   [{promise-impl :promise-impl
-    executor :executor
+    on-overflow :on-overflow
     buffer-size :buffer-size
     park-q-size :park-q-size
+    executor :executor
     :or {promise-impl promesa/default-impl
-         executor nil
+         on-overflow :stream.overflow/park
          buffer-size 0
-         park-q-size 16384}}]
+         park-q-size 16384
+         executor nil}}]
   (let [st (initial-state buffer-size park-q-size)]
     (->StreamBuffer
      promise-impl
+     on-overflow
      buffer-size
      park-q-size
      (Object.)
