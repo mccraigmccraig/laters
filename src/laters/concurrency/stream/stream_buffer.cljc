@@ -57,6 +57,16 @@
 ;;   emptied, then signal onComplete to all subscribers. signal onComplete
 ;;   to any new subscribers
 
+(defn next-parked
+  [park-q]
+  (loop [{completion-p :completion-p
+          v :value} (.poll park-q)]
+    (if (promise/resolve! completion-p true)
+      v
+      (if (> (count park-q) 0)
+        (recur (.poll park-q))
+        ::none))))
+
 (defn next-emit
   [park-q buffer emit-q]
   (cond
@@ -65,18 +75,18 @@
     (.poll emit-q)
 
     ;; if there are no queued emits, then try the buffer
+    ;; if space gets freed in the buffer, fill it from the
+    ;; park-q
     (> (count buffer) 0)
-    (.poll buffer)
+    (let [n (.poll buffer)
+          np (next-parked park-q)]
+      (when (not= ::none np)
+        (.add buffer np))
+      n)
 
     ;; finally try parked puts which haven't timed out
     (> (count park-q) 0)
-    (loop [{completion-p :completion-p
-            v :value} (.poll park-q)]
-      (if (promise/resolve! completion-p true)
-        v
-        (if (> (count park-q) 0)
-          (recur (.poll park-q))
-          ::none)))))
+    (next-parked park-q)))
 
 (defn do-emit-task
   "emit as much requested demand as is currently available"
