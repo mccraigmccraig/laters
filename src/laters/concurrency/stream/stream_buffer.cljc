@@ -16,21 +16,21 @@
 (def terminal-states #{::drained ::errored})
 (def closed-or-terminal-states (conj terminal-states ::closed))
 
-(def on-overflow [:stream.overflow/park
-                  :stream.overflow/error
-                  :stream.overflow/drop-oldest
-                  :stream.overflow/drop-latest])
+(def on-overflow [:stream.on-overflow/park
+                  :stream.on-overflow/error
+                  :stream.on-overflow/drop-oldest
+                  :stream.on-overflow/drop-latest])
 
 (defn initial-state
   []
-  {:stream-state ::open
-   :demand 0
-   :handler nil
-   :buffer (ArrayDeque.)
-   :park-q (ArrayDeque.)
-   :emit-q (ArrayDeque.)
-   :emitting false
-   :error nil})
+  {::stream-state ::open
+   ::demand 0
+   ::handler nil
+   ::buffer (ArrayDeque.)
+   ::park-q (ArrayDeque.)
+   ::emit-q (ArrayDeque.)
+   ::emitting? false
+   ::error nil})
 
 ;; for IWriteStream we'd need to implement buffering in addition to the
 ;; Publisher protocol (which only has subscribe), and a -put! method
@@ -105,18 +105,18 @@
   [sb]
   (locking (.-lock sb)
     ;; re-entrancy protection
-    (if (not (true? (-> sb .-state-a deref :emitting)))
+    (if (not (true? (-> sb .-state-a deref ::emitting?)))
       (let [state-a (.-state-a sb)
-            {stream-state :stream-state
-             demand :demand
-             handler :handler
-             buffer :buffer
-             park-q :park-q
-             emit-q :emit-q
-             error :error
+            {stream-state ::stream-state
+             demand ::demand
+             handler ::handler
+             buffer ::buffer
+             park-q ::park-q
+             emit-q ::emit-q
+             error ::error
              :as state} (deref state-a)]
         (try
-          (swap! state-a assoc :emitting true)
+          (swap! state-a assoc ::emitting? true)
 
           (cond
 
@@ -130,12 +130,12 @@
               (if (= ::none v) ;; nothing to emit
                 (do
                   (when (= ::closed stream-state)
-                    (swap! state-a assoc :stream-state ::drained))
+                    (swap! state-a assoc ::stream-state ::drained))
                   [::done])
 
                 (do ;; an actual emit!
                   (when (< demand Integer/MAX_VALUE)
-                    (swap! state-a update :demand dec))
+                    (swap! state-a update ::demand dec))
 
                   (let [r (stream.p/-handle handler sb v)]
                     (if (promise/promise? r)
@@ -161,7 +161,7 @@
           (catch Throwable e
             [::error e])
           (finally
-            (swap! state-a assoc :emitting false))))
+            (swap! state-a assoc ::emitting? false))))
 
       ;; we're already emitting
       [::done])))
@@ -238,7 +238,7 @@
     ;;TODO what to do if we are not ::open
 
     (locking lock
-      (swap! state-a update :demand #(+ % n))
+      (swap! state-a update ::demand #(+ % n))
       (do-emit this (promise/deferred))
       ;; should this return true ?
       true))
@@ -248,13 +248,13 @@
   (-put! [this v timeout] (stream.p/-put! this v timeout nil))
   (-put! [this v timeout timeout-val]
     (locking lock
-      (let [{stream-state :stream-state
-             demand :demand
-             handler :handler
-             buffer :buffer
-             park-q :park-q
-             emit-q :emit-q
-             error :error
+      (let [{stream-state ::stream-state
+             demand ::demand
+             handler ::handler
+             buffer ::buffer
+             park-q ::park-q
+             emit-q ::emit-q
+             error ::error
              :as state} @state-a]
         (cond (and
                (= ::open stream-state)
@@ -275,20 +275,20 @@
                 (< (count buffer) buffer-size)
                 (and (> (count buffer) 0)
                      (or
-                      (= on-overflow :stream.overflow/drop-latest)
-                      (= on-overflow :stream.overflow/drop-oldest)))))
+                      (= on-overflow :stream.on-overflow/drop-latest)
+                      (= on-overflow :stream.on-overflow/drop-oldest)))))
               ;; buffer, maybe with overflow behaviour
               (let [completion-p (promise/deferred promise-impl)]
                 (cond
                   (< (count buffer) buffer-size)
                   (.add buffer v)
 
-                  (= on-overflow :stream.overflow/drop-latest)
+                  (= on-overflow :stream.on-overflow/drop-latest)
                   (do
                     (.pop buffer)
                     (.add buffer v))
 
-                  (= on-overflow :stream.overflow/drop-oldest)
+                  (= on-overflow :stream.on-overflow/drop-oldest)
                   (do
                     (.poll buffer)
                     (.add buffer v)))
@@ -297,7 +297,7 @@
 
               (and
                (= ::open stream-state)
-               (= on-overflow :stream.overflow/park)
+               (= on-overflow :stream.on-overflow/park)
                (< (count park-q) park-q-size))
               ;; park
               (let [completion-p (promise/deferred promise-impl)
@@ -330,59 +330,59 @@
               ;; stream is closed
               (promise/resolved false)
 
-              (= :errored stream-state)
+              (= ::errored stream-state)
               ;; stream is errored
               (promise/rejected error)
 
               :else
               (promise/rejected (ex-info "unknown stream-state"
-                                         {:stream-state stream-state}))))))
+                                         {::stream-state stream-state}))))))
   (-error! [this err]
     (locking lock
-      (let [{stream-state :stream-state} @state-a]
+      (let [{stream-state ::stream-state} @state-a]
         (when (not (contains? terminal-states stream-state))
           (swap! state-a
                  assoc
-                 :stream-state ::errored
-                 :error err)
-          (when-let [handler (-> state-a deref :handler)]
+                 ::stream-state ::errored
+                 ::error err)
+          (when-let [handler (-> state-a deref ::handler)]
             (stream.p/-error handler this err))))))
   (-close! [this]
     (locking lock
-      (let [{stream-state :stream-state} @state-a]
+      (let [{stream-state ::stream-state} @state-a]
         (when (not (contains? closed-or-terminal-states stream-state))
           (swap! state-a
                  assoc
-                 :stream-state ::closed)
-          (when-let [handler (-> state-a deref :handler)]
+                 ::stream-state ::closed)
+          (when-let [handler (-> state-a deref ::handler)]
             (stream.p/-close handler this))))))
   (-set-handler [this handler]
     (locking lock
       (if handler
-        (if (some? (-> state-a deref :handler))
+        (if (some? (-> state-a deref ::handler))
           (throw (ex-info "handler already set" {:stream-buffer this}))
           (do
-            (swap! state-a assoc :handler handler)
-            (let [{stream-state :stream-state
-                   err :error} @state-a]
+            (swap! state-a assoc ::handler handler)
+            (let [{stream-state ::stream-state
+                   err ::error} @state-a]
               (case stream-state
                 ::closed (do-emit this (promise/deferred promise-impl))
                 ::drained (stream.p/-close handler this)
                 ::errored (stream.p/-error handler this err)
                 ::open nil
-                (throw (ex-info "unknown stream-state" {:stream-state stream-state})))
+                (throw (ex-info "unknown stream-state" {::stream-state stream-state})))
               true)))
-        (swap! state-a assoc :handler nil)))))
+        (swap! state-a assoc ::handler nil)))))
 
 
 (defn stream-buffer
-  [{promise-impl :promise-impl
-    on-overflow :on-overflow
-    buffer-size :buffer-size
-    park-q-size :park-q-size
-    executor :executor
+  [{promise-impl :stream/promise-impl
+    on-overflow :stream/on-overflow
+    buffer-size :stream/buffer-size
+    park-q-size :stream/park-q-size
+    executor :stream/executor
     :or {promise-impl promesa/default-impl
-         on-overflow :stream.overflow/park
+         on-overflow :stream.on-overflow/park
          buffer-size 0
          park-q-size 16384
          executor nil}}]
