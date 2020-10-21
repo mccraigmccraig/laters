@@ -335,11 +335,11 @@
         (stream.p/-close handler this))))
   (-set-handler [this handler]
     (locking lock
-      (if-let [h (-> state-a deref :handler)]
-        (stream.p/-error handler this (ex-info "handler already set" {:stream-buffer this}))
-        (do
-          (swap! state-a assoc :handler handler)
-          (when handler
+      (if handler
+        (if (some? (-> state-a deref :handler))
+          (throw (ex-info "handler already set" {:stream-buffer this}))
+          (do
+            (swap! state-a assoc :handler handler)
             (let [{stream-state :stream-state
                    err :error} @state-a]
               (case stream-state
@@ -348,7 +348,8 @@
                 ::errored (stream.p/-error handler this err)
                 ::open nil
                 (throw (ex-info "unknown stream-state" {:stream-state stream-state})))
-              true)))))))
+              true)))
+        (swap! state-a assoc :handler nil)))))
 
 
 (defn stream-buffer
