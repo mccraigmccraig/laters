@@ -177,19 +177,24 @@
   (try
     (loop [r (do-emit-one sb)]
       (if (promise/promise? r)
-        (promise/then
+        (promise/handle
          r
-         (fn [[k v]]
-           (case k
-             ::emitted-one (do-emit-task sb completion-p)
-             ::none (promise/resolve! completion-p true)
-             ::error (do (stream.p/-error! sb v)
-                         (promise/reject! completion-p v))
-             ::throwable (do (stream.p/-error! sb v)
-                             (promise/reject! completion-p v))
+         (fn [[k v] error]
+           (if (some? error)
+             ;; should never error, but better to pass it on if it does
              (promise/reject!
               completion-p
-              (ex-info "bad case:" [k v]))))
+              error)
+             (case k
+               ::emitted-one (do-emit-task sb completion-p)
+               ::none (promise/resolve! completion-p true)
+               ::error (do (stream.p/-error! sb v)
+                           (promise/reject! completion-p v))
+               ::throwable (do (stream.p/-error! sb v)
+                               (promise/reject! completion-p v))
+               (promise/reject!
+                completion-p
+                (ex-info "bad case:" [k v])))))
          (.-promise-impl sb))
 
         ;; trampoline to avoid blowing stack in case of sync handler
@@ -212,12 +217,14 @@
 
 (defn do-emit
   "if there's no executor then emit on the caller's thread,
-   otherwise use the executor. emit order is guaranteed by
-   the use of the emit-q"
+   otherwise use the executor.
+   returns completion-p, which will be resolved when the emit operation
+   completes"
   [sb completion-p]
   (if (some? (.-executor sb))
     (.execute #(do-emit-task sb completion-p))
-    (do-emit-task sb completion-p)))
+    (do-emit-task sb completion-p))
+  completion-p)
 
 (deftype StreamBuffer [promise-impl
                        on-overflow
@@ -255,9 +262,9 @@
                (some? handler)
                (> demand 0))
               (let [completion-p (promise/deferred promise-impl)]
-
                 (.add emit-q v)
-                (do-emit this completion-p))
+                (do-emit this completion-p)
+                completion-p)
 
               (and
                (= ::open stream-state)
@@ -282,8 +289,8 @@
                   (do
                     (.poll buffer)
                     (.add buffer v)))
-
-                (do-emit this completion-p))
+                (do-emit this completion-p)
+                completion-p)
 
               (and
                (= ::open stream-state)
