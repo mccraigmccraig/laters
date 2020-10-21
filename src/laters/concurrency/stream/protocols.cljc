@@ -74,6 +74,11 @@
     [this]
     "signal the stream is ended and put it in a terminal state"))
 
+(defprotocol IStreamBuffer
+  (-request!
+    [this n]
+    "request the delivery of n objects"))
+
 (defprotocol IReadStream
   (-take!
     [this]

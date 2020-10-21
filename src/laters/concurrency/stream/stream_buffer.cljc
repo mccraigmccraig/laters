@@ -103,7 +103,8 @@
             (let [v (next-emit park-q buffer emit-q)]
               (when (not= ::none v)
                 (handler v)
-                (swap! state-a update :demand dec))))
+                (when (< demand Integer/MAX_VALUE)
+                  (swap! state-a update :demand dec)))))
 
           (promise/resolve! completion-p true)
 
@@ -135,6 +136,14 @@
                        lock
                        executor
                        state-a]
+
+  stream.p/IStreamBuffer
+  (-request! [this n]
+    (locking lock
+      (swap! state-a update :demand #(+ % n))
+      (do-emit this (promise/deferred))
+      ;; should this return true ?
+      true))
 
   stream.p/IWriteStream
   (-put! [this v] (stream.p/-put! this v nil nil))
