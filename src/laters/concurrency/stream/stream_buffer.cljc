@@ -52,6 +52,27 @@
 ;;   emptied, then signal onComplete to all subscribers. signal onComplete
 ;;   to any new subscribers
 
+(defn next-emit
+  [park-q buffer emit-q]
+  (cond
+    ;; check queued emits first
+    (> (count emit-q) 0)
+    (.poll emit-q)
+
+    ;; if there are no queued emits, then try the buffer
+    (> (count buffer) 0)
+    (.poll buffer)
+
+    ;; finally try parked puts which haven't timed out
+    (> (count park-q) 0)
+    (loop [{completion-p :completion-p
+            v :value} (.poll park-q)]
+      (if (promise/resolve! completion-p true)
+        v
+        (if (> (count park-q) 0)
+          (recur (.poll park-q))
+          ::none)))))
+
 (defn do-emit-task
   "emit as much requested demand as is currently available"
   [sb completion-p]
@@ -63,6 +84,8 @@
             {stream-state :stream-state
              demand :demand
              handler :handler
+             buffer :buffer
+             park-q :park-q
              emit-q :emit-q
              :as state} (deref state-a)]
         (try
@@ -71,10 +94,11 @@
           (while (and
                   (= ::open stream-state)
                   (some? handler)
-                  (> demand 0)
-                  (> (count emit-q) 0))
-            (handler (.poll emit-q))
-            (swap! state-a update :demand dec))
+                  (> demand 0))
+            (let [v (next-emit park-q buffer emit-q)]
+              (when (not= ::none v)
+                (handler v)
+                (swap! state-a update :demand dec))))
 
           (promise/resolve! completion-p true)
 
@@ -148,12 +172,17 @@
               (and
                (= ::open stream-state)
                (< (count park-q) park-q-size))
-              (let [completion-p (promise/deferred promise-impl)]
+              (let [completion-p (promise/deferred promise-impl)
+                    completion-p (if timeout
+                                   (promise/timeout
+                                    completion-p
+                                    timeout
+                                    timeout-val
+                                    promise-impl)
+                                   completion-p)]
                 ;; not finished here yet
-                (.add emit-q {:promise completion-p
-                              :value v
-                              :timeout timeout
-                              :timeout-val timeout-val })
+                (.add emit-q {:completion-p completion-p
+                              :value v})
                 (do-emit this (promise/deferred promise-impl))
                 completion-p)
 

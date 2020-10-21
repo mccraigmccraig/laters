@@ -39,6 +39,14 @@
   ([p f impl]
    (pr.p/-handle p f impl)))
 
+(defn timeout
+  ([p t]
+   (pr.p/-timeout p t))
+  ([p t tv]
+   (pr.p/-timeout p t tv))
+  ([p t tv impl]
+   (pr.p/-timeout p t tv impl)))
+
 (defn inspect
   [p]
   (pr.p/-handle p (fn [s e]
