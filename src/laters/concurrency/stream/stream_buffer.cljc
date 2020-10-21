@@ -154,7 +154,7 @@
             [::none]
 
             :else
-            [::error (ex-info "bad state" state)])
+            (throw (ex-info "bad state" state)))
 
           (catch Throwable e
             [::error e])
@@ -174,29 +174,41 @@
   [sb completion-p]
   ;; re-entrancy protection - handling a message may
   ;; cause do-emit to be called again
-  (loop [r (do-emit-one sb)]
-    (if (promise/promise? r)
-      (promise/then
-       r
-       (fn [[k v]]
-         (case k
-           ::emitted-one (do-emit-task sb completion-p)
-           ::none (promise/resolve! completion-p true)
-           ::error (do (stream.p/-error! sb v)
-                       (promise/reject! completion-p v))
-           ::throwable (do (stream.p/-error! sb v)
-                           (promise/reject! completion-p v))))
-       (.-promise-impl sb))
+  (try
+    (loop [r (do-emit-one sb)]
+      (if (promise/promise? r)
+        (promise/then
+         r
+         (fn [[k v]]
+           (case k
+             ::emitted-one (do-emit-task sb completion-p)
+             ::none (promise/resolve! completion-p true)
+             ::error (do (stream.p/-error! sb v)
+                         (promise/reject! completion-p v))
+             ::throwable (do (stream.p/-error! sb v)
+                             (promise/reject! completion-p v))
+             (promise/reject!
+              completion-p
+              (ex-info "bad case:" [k v]))))
+         (.-promise-impl sb))
 
-      ;; trampoline to avoid blowing stack in case of sync handler
-      (let [[k v] r]
-        (case k
-          ::emitted-one (recur (do-emit-one sb))
-          ::none (promise/resolve! completion-p true)
-          ::error (do (stream.p/-error! sb v)
-                      (promise/reject! completion-p v))
-          ::throwable (do (stream.p/-error! sb v)
-                          (promise/reject! completion-p v)))))))
+        ;; trampoline to avoid blowing stack in case of sync handler
+        (let [[k v] r]
+          (case k
+            ::emitted-one (recur (do-emit-one sb))
+            ::none (promise/resolve! completion-p true)
+            ::error (do (stream.p/-error! sb v)
+                        (promise/reject! completion-p v))
+            ::throwable (do (stream.p/-error! sb v)
+                            (promise/reject! completion-p v))
+            (promise/reject!
+             completion-p
+             (ex-info "do-emit bad case:" {:state-buffer sb
+                                           :kv [k v]}))))))
+    (catch Throwable e
+      (promise/reject!
+       completion-p
+       (ex-info "do-emit error" {:state-buffer sb})))))
 
 (defn do-emit
   "if there's no executor then emit on the caller's thread,

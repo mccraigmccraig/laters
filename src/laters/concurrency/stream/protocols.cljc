@@ -79,6 +79,11 @@
     [this n]
     "request the delivery of n objects"))
 
+(defprotocol IStreamBufferHandler
+  (-handle [p v])
+  (-complete [p])
+  (-error [p err]))
+
 (defprotocol IReadStream
   (-take!
     [this]
