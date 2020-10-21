@@ -43,6 +43,10 @@
   ([p f impl]
    (pr.p/-handle p f impl)))
 
+;; TODO
+;; add a test that it's possible to resolve!
+;; an unresolved timeout promise - i.e. it behaves
+;; like a deferred with benefits (stream-buffer depends on it)
 (defn timeout
   ([p t]
    (pr.p/-timeout p t))

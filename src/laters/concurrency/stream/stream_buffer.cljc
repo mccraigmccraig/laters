@@ -62,7 +62,10 @@
   (loop [{completion-p :completion-p
           v :value} (.poll park-q)]
     (if (promise/resolve! completion-p true)
+      ;; resolve! succeeded, so completion-p had not timed out
       v
+
+      ;; resolve! failed, this put! had timed out... try for more
       (if (> (count park-q) 0)
         (recur (.poll park-q))
         ::none))))
@@ -74,7 +77,7 @@
     (> (count emit-q) 0)
     (.poll emit-q)
 
-    ;; if there are no queued emits, then try the buffer
+    ;; if there are no queued emits, try the buffer
     ;; if space gets freed in the buffer, fill it from the
     ;; park-q
     (> (count buffer) 0)
@@ -84,9 +87,13 @@
         (.add buffer np))
       n)
 
-    ;; finally try parked puts which haven't timed out
+    ;; finally try parked puts
     (> (count park-q) 0)
-    (next-parked park-q)))
+    (next-parked park-q)
+
+    ;; nothing to emit
+    :else
+    ::none))
 
 (defn do-emit-one
   "emit one - it doesn't really matter which thread
@@ -94,6 +101,7 @@
    ops get interleaved - the results should be the same"
   [sb]
   (locking (.-lock sb)
+    ;; re-entrancy protection
     (if (not (true? (-> sb .-state-a deref :emitting)))
       (let [state-a (.-state-a sb)
             {stream-state :stream-state
@@ -102,19 +110,26 @@
              buffer :buffer
              park-q :park-q
              emit-q :emit-q
+             error :error
              :as state} (deref state-a)]
         (try
           (swap! state-a assoc :emitting true)
 
-          (if (and
-               (= ::open stream-state)
-               (some? handler)
-               (> demand 0))
+          (cond
 
+            (and
+             (not (#{::drained
+                     ::errored} stream-state))
+             (some? handler)
+             (> demand 0))
             ;; there is demand, but is there anything to emit
             (let [v (next-emit park-q buffer emit-q)]
-              (if (= ::none v)
-                [::none] ;; nothing to emit
+
+              (if (= ::none v) ;; nothing to emit
+                (do
+                  (when (= ::closed stream-state)
+                    (swap! state-a assoc :stream-state ::drained))
+                  [::none])
 
                 (do ;; an actual emit!
                   (when (< demand Integer/MAX_VALUE)
@@ -129,10 +144,17 @@
                            [::error error]
                            [::emitted-one success]))
                        (.promise-impl sb))
+
                       [::emitted-one r])))))
 
-            ;; no demand, handler or ::closed
-            [::none])
+            (= ::errored stream-state)
+            [::error error]
+
+            (= ::drained stream-state)
+            [::none]
+
+            :else
+            [::error (ex-info "bad state" state)])
 
           (catch Throwable e
             [::error e])
@@ -158,17 +180,18 @@
        r
        (fn [[k v]]
          (case k
-           ::emitted-one (do-emit-one sb)
+           ::emitted-one (do-emit-task sb completion-p)
            ::none (promise/resolve! completion-p true)
            ::error (do (stream.p/-error! sb v)
                        (promise/reject! completion-p v))
            ::throwable (do (stream.p/-error! sb v)
-                           (promise/reject! completion-p v)))))
+                           (promise/reject! completion-p v))))
+       (.-promise-impl sb))
 
       ;; trampoline to avoid blowing stack in case of sync handler
       (let [[k v] r]
         (case k
-          ::emitted-one (do-emit-one sb)
+          ::emitted-one (recur (do-emit-one sb))
           ::none (promise/resolve! completion-p true)
           ::error (do (stream.p/-error! sb v)
                       (promise/reject! completion-p v))
@@ -183,8 +206,6 @@
   (if (some? (.-executor sb))
     (.execute #(do-emit-task sb completion-p))
     (do-emit-task sb completion-p)))
-
-
 
 (deftype StreamBuffer [promise-impl
                        on-overflow
@@ -224,11 +245,7 @@
               (let [completion-p (promise/deferred promise-impl)]
 
                 (.add emit-q v)
-                (do-emit this completion-p)
-
-                (promise/then
-                 completion-p
-                 (constantly true)))
+                (do-emit this completion-p))
 
               (and
                (= ::open stream-state)
@@ -254,11 +271,7 @@
                     (.poll buffer)
                     (.add buffer v)))
 
-                (do-emit this completion-p)
-
-                (promise/then
-                 completion-p
-                 (constantly true)))
+                (do-emit this completion-p))
 
               (and
                (= ::open stream-state)
@@ -272,10 +285,14 @@
                                     timeout-val
                                     promise-impl)
                                    completion-p)]
-                ;; not finished here yet
+
                 (.add emit-q {:completion-p completion-p
                               :value v})
+                ;; throw away the emit completion - the response
+                ;; completes when the value gets added to the buffer
+                ;; or handled
                 (do-emit this (promise/deferred promise-impl))
+
                 completion-p)
 
               (and
@@ -283,7 +300,6 @@
               (promise/rejected
                promise-impl
                (ex-info "full!" {:v v}))
-
 
               (= ::closed stream-state)
               (promise/resolved false)
