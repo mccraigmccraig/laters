@@ -19,6 +19,10 @@
   [impl]
   (pr.p/-deferred impl))
 
+(defn promise?
+  [impl p]
+  (pr.p/-promise? impl p))
+
 (defn resolve!
   [p v]
   (pr.p/-resolve! p v))

@@ -9,7 +9,9 @@
   (-rejected [_ err]
     "return a rejected promise")
   (-deferred [_]
-    "return an unfulfilled promise"))
+    "return an unfulfilled promise")
+  (-promise? [_ p]
+    "return true if p is a promise"))
 
 (defprotocol IPromise
   (-resolve!

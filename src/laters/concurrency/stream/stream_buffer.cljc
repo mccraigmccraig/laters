@@ -19,7 +19,7 @@
                   :stream.overflow/drop-latest])
 
 (defn initial-state
-  [buffer-size park-q-size]
+  []
   {:stream-state ::open
    :demand 0
    :handler nil
@@ -88,13 +88,13 @@
     (> (count park-q) 0)
     (next-parked park-q)))
 
-(defn do-emit-task
-  "emit as much requested demand as is currently available"
-  [sb completion-p]
-  ;; re-entrancy protection - handling a message may
-  ;; cause do-emit to be called again
-  (when (not (true? (-> sb .-state-a deref :emitting)))
-    (locking (.-lock sb)
+(defn do-emit-one
+  "emit one - it doesn't really matter which thread
+   this gets run on, or whether emit-ones from different
+   ops get interleaved - the results should be the same"
+  [sb]
+  (locking (.-lock sb)
+    (if (not (true? (-> sb .-state-a deref :emitting)))
       (let [state-a (.-state-a sb)
             {stream-state :stream-state
              demand :demand
@@ -106,27 +106,74 @@
         (try
           (swap! state-a assoc :emitting true)
 
-          (while (and
-                  (= ::open stream-state)
-                  (some? handler)
-                  (> demand 0))
+          (if (and
+               (= ::open stream-state)
+               (some? handler)
+               (> demand 0))
+
+            ;; there is demand, but is there anything to emit
             (let [v (next-emit park-q buffer emit-q)]
-              (when (not= ::none v)
-                (handler v)
-                (when (< demand Integer/MAX_VALUE)
-                  (swap! state-a update :demand dec)))))
+              (if (= ::none v)
+                [::none] ;; nothing to emit
 
-          (promise/resolve! completion-p true)
+                (do ;; an actual emit!
+                  (when (< demand Integer/MAX_VALUE)
+                    (swap! state-a update :demand dec))
 
-          (catch Exception e
-            (stream.p/-error! sb e)
-            (promise/reject! completion-p e))
+                  (let [r (handler v)]
+                    (if (promise/promise? r)
+                      (promise/handle
+                       r
+                       (fn [success error]
+                         (if (some? error)
+                           [::error error]
+                           [::emitted-one success]))
+                       (.promise-impl sb))
+                      [::emitted-one r])))))
+
+            ;; no demand, handler or ::closed
+            [::none])
+
           (catch Throwable e
-            (stream.p/-error! sb e)
-            (promise/reject! completion-p e)
-            (throw e))
+            [::error e])
           (finally
-            (swap! state-a assoc :emitting false)))))))
+            (swap! state-a assoc :emitting false))))
+
+      ;; we're already emitting
+      [::none])))
+
+(defn do-emit-task
+  "emit as much requested demand as is currently available. keep on
+   emitting until either demand is satisfied or there are no items to
+   emit.
+   if the handler returns a promise, then chain emission to resolution of
+   that promise, if the handler returns sync then loop emission
+   resolve the completion-p when done. "
+  [sb completion-p]
+  ;; re-entrancy protection - handling a message may
+  ;; cause do-emit to be called again
+  (loop [r (do-emit-one sb)]
+    (if (promise/promise? r)
+      (promise/then
+       r
+       (fn [[k v]]
+         (case k
+           ::emitted-one (do-emit-one sb)
+           ::none (promise/resolve! completion-p true)
+           ::error (do (stream.p/-error! sb v)
+                       (promise/reject! completion-p v))
+           ::throwable (do (stream.p/-error! sb v)
+                           (promise/reject! completion-p v)))))
+
+      ;; trampoline to avoid blowing stack in case of sync handler
+      (let [[k v] r]
+        (case k
+          ::emitted-one (do-emit-one sb)
+          ::none (promise/resolve! completion-p true)
+          ::error (do (stream.p/-error! sb v)
+                      (promise/reject! completion-p v))
+          ::throwable (do (stream.p/-error! sb v)
+                          (promise/reject! completion-p v)))))))
 
 (defn do-emit
   "if there's no executor then emit on the caller's thread,
@@ -267,7 +314,7 @@
          buffer-size 0
          park-q-size 16384
          executor nil}}]
-  (let [st (initial-state buffer-size park-q-size)]
+  (let [st (initial-state)]
     (->StreamBuffer
      promise-impl
      on-overflow
