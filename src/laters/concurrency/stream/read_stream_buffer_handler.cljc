@@ -12,7 +12,7 @@
    ::take-q (ArrayDeque.)
    ::stream-buffer nil})
 
-(defn fulfil-take
+(defn fulfil-one-take
   "fulfil a single take if possible"
   [take-q v]
   (if (> (count take-q) 0)
@@ -30,7 +30,7 @@
   (if (> (count handle-q) 0)
     (loop [{handle-r ::handle-r
             value ::value} (.peek handle-q)]
-      (if (= ::take-fulfilled (fulfil-take take-q value))
+      (if (= ::take-fulfilled (fulfil-one-take take-q value))
         (do
           (.poll handle-q)
           (if (> (count handle-q) 0)
@@ -49,7 +49,7 @@
              take-q ::take-q} @state-a
             handle-r (promise/deferred promise-impl)]
 
-        (if (= ::take-fulfilled (fulfil-take take-q v))
+        (if (= ::take-fulfilled (fulfil-one-take take-q v))
           (promise/resolve! handle-r true)
 
           (.add handle-q {::handle-r handle-r
@@ -68,7 +68,10 @@
       (let [{handle-q ::handle-q
              take-q ::take-q
              stream-buffer ::stream-buffer} @state-a
-            take-r (promise/deferred promise-impl)]
+            take-r (promise/deferred promise-impl)
+            take-r (if timeout
+                     (promise/timeout take-r timeout timeout-val promise-impl)
+                     take-r)]
 
         ;; if we have a stream-buffer, request another message
         (when (some? stream-buffer)
