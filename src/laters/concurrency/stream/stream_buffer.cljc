@@ -234,16 +234,22 @@
 
   stream.p/IStreamBuffer
   (-request! [this n]
-    (locking lock
-      (let [{stream-state ::stream-state} @state-a]
-        (if (not (contains? terminal-states stream-state))
-          (do
-            (swap! state-a update ::demand #(+ % n))
-            (do-emit this (promise/deferred))
-            ;; should this return true ?
-            true)
-
-          false))))
+    (if (> n 0)
+      (locking lock
+        (let [{stream-state ::stream-state} @state-a]
+          (if (not (contains? terminal-states stream-state))
+            (do
+              (swap! state-a
+                     update
+                     ::demand
+                     (fn [demand]
+                       (if (<= demand (- Integer/MAX_VALUE demand))
+                         (+ demand n)
+                         Integer/MAX_VALUE)))
+              (do-emit this (promise/deferred))
+              true)
+            false)))
+      false))
 
   stream.p/IWriteStream
   (-put! [this v] (stream.p/-put! this v nil nil))
