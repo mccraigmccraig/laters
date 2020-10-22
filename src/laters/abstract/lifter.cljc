@@ -11,7 +11,7 @@
   [l]
   (satisfies? p/ILifter l))
 
-(declare match-lifter)
+(declare match-lifter*)
 
 (defn ^:private match-segment
   [lifters tc r]
@@ -23,7 +23,7 @@
     (get lifters tc)
 
     (not-empty r)
-    (match-lifter (get lifters tc) (next r))
+    (match-lifter* (get lifters tc) (next r))
 
     :else
     nil))

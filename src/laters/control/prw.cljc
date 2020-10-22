@@ -272,7 +272,7 @@
   (require '[laters.concurrency.promise :as p])
   (require '[laters.concurrency.promise.rxjava :as rxjava])
 
-                @(m.prw/run-prw
+  @(m.prw/run-prw
     (m.prw/prw-let
      [{a :foo} (m.reader/ask)
       b (m.reader/asks :bar)
@@ -325,6 +325,23 @@
       (e/catch emv #(m/return (ex-data %))))
      {:monad.reader/env {:foo 10}}))
 
+  @(m.prw/run-prw
+    (m.prw/prw-let
+     (e/catch
+         (m.prw/prw-let
+          [a (m.reader/asks :foo)
+           _ (m.writer/tell [:foo a])
+           b (m/return 5)
+           _ (m.writer/tell :bar)
+           _ (throw (ex-info "wah" {:a a :b b}))]
+          (m/return [a b]))
+         (fn [e]
+           (m.prw/prw-let
+            [_ (m.writer/tell [:error (.getMessage e)])]
+            (m/return :caught)))))
+
+    {:monad.reader/env {:foo 10}})
+
   ;; catch in first step
   @(m.prw/run-prw
     (m.prw/prw-let
@@ -339,7 +356,7 @@
   ;; RxJava Single-based promises
   (def prw-ctx
     (m.prw/make-prw-ctx
-     rxjava/factory {}))
+     rxjava/default-impl {}))
 
   ;; does some stuff, then errors
   (def emv
