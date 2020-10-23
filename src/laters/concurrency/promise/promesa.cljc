@@ -34,10 +34,21 @@
      (promesa/handle p f x)
      (promesa/handle p f))))
 
+(defn promesa-timeout
+  ([p t]
+   (promesa/timeout p t))
+  ([p t v]
+   (promesa/timeout p t v))
+  ([p t v ^PromesaPromiseImpl impl]
+   (if-let [x (some-> impl .executor)]
+     (promesa/handle p t v x)
+     (promesa/timeout p t v))))
+
 (extend CompletableFuture
   p/IPromise
   {:-then promesa-then
    :-handle promesa-handle
+   :-timeout promesa-timeout
    :-resolve! promesa/resolve!
    :-reject! promesa/reject!
    #?@(:clj [:-deref clojure.core/deref])

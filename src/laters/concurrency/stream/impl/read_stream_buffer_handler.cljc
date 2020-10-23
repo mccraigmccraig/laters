@@ -44,6 +44,27 @@
         ::done))
     ::done))
 
+(defn default-remaining-takers
+  [take-q]
+  (if (> (count take-q) 0)
+    (loop [{take-r ::take-r
+            default-val ::default-value} (.poll take-q)]
+      (promise/resolve! take-r default-val)
+      (if (> (count take-q) 0)
+        (recur (.poll take-q))
+        true))
+    true))
+
+(defn error-remaining-takers
+  [take-q error]
+  (if (> (count take-q) 0)
+    (loop [{take-r ::take-r} (.poll take-q)]
+      (promise/reject! take-r error)
+      (if (> (count take-q) 0)
+        (recur (.poll take-q))
+        true))
+    true))
+
 (deftype ReadStreamBufferHandler [promise-impl
                                   take-q-size
                                   state-a]
@@ -93,13 +114,21 @@
 
   (-on-complete [this]
     (locking [this]
-      (swap! state-a assoc ::handler-state ::completed)))
+      (let [{handle-q ::handle-q
+             take-q ::take-q} @state-a]
+        (swap! state-a assoc ::handler-state ::completed)
+        (fulfil handle-q take-q)
+        (default-remaining-takers take-q))))
 
   (-on-error [this err]
     (locking [this]
-      (swap! state-a assoc
-             ::handler-state ::errored
-             ::error err)))
+      (let [{handle-q ::handle-q
+             take-q ::take-q} @state-a]
+        (swap! state-a assoc
+               ::handler-state ::errored
+               ::error err)
+        (fulfil handle-q take-q)
+        (error-remaining-takers take-q err))))
 
   stream.p/IReadStream
   (-take! [this]
@@ -130,7 +159,8 @@
                          take-r)]
             ;; add to take-q before requesting, so that
             ;; any request gets fulfilled immediately
-            (.add take-q {::take-r take-r})
+            (.add take-q {::take-r take-r
+                          ::default-value default-val})
 
             ;; if we have a stream-buffer, request another message
             (when (some? stream-buffer)

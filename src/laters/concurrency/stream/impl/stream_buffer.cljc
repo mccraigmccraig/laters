@@ -367,6 +367,7 @@
                    ::error err)
             (when-let [handler (-> state-a deref ::handler)]
               (stream.p/-on-error handler err))
+            (do-emit this (promise/deferred promise-impl))
             true)
 
           false))))
@@ -378,8 +379,7 @@
             (swap! state-a
                    assoc
                    ::stream-state ::closed)
-            (when-let [handler (-> state-a deref ::handler)]
-              (stream.p/-on-complete handler))
+            (do-emit this (promise/deferred promise-impl))
             true)
 
           false))))
