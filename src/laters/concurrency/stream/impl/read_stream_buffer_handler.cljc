@@ -1,4 +1,4 @@
-(ns laters.concurrency.stream.read-stream-buffer-handler
+(ns laters.concurrency.stream.impl.read-stream-buffer-handler
   (:require
    [laters.concurrency.promise :as promise]
    [laters.concurrency.promise.promesa :as promesa]
@@ -151,7 +151,8 @@
   (-reduce [this f initval impl]))
 
 (defmethod print-method ReadStreamBufferHandler [rsbh ^Writer w]
-  (let [{handle-q ::handle-q
+  (let [{stream-buffer ::stream-buffer
+         handle-q ::handle-q
          take-q ::take-q
          error ::error
          :as state} (-> rsbh .-state-a deref)
@@ -159,6 +160,7 @@
                         (select-keys [::handler-state])
                         (assoc ::handle-q (count handle-q)
                                ::take-q (count take-q)
+                               ::stream-buffer (some? stream-buffer)
                                ::error (some? error)))]
     (.write w "<< read-stream-buffer-handler: ")
     (.write w (prn-str print-state))

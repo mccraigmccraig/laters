@@ -1,4 +1,4 @@
-(ns laters.concurrency.stream.stream-buffer
+(ns laters.concurrency.stream.impl.stream-buffer
   (:require
    [laters.concurrency.promise :as promise]
    [laters.concurrency.promise.promesa :as promesa]
@@ -416,16 +416,17 @@
   (let [{buffer ::buffer
          park-q ::park-q
          emit-slot ::emit-slot
+         handler ::handler
          error ::error
          :as state} (-> sb .-state-a deref)
         print-state (-> state
                         (select-keys [::stream-state
                                       ::demand
-                                      ::handler
                                       ::emitting])
                         (assoc ::buffer (count buffer)
                                ::park-q (count park-q)
                                ::emit-slot (count emit-slot)
+                               ::handler (some? handler)
                                ::error (some-> error .getMessage)))]
     (.write w "<< stream-buffer: ")
     (.write w (prn-str print-state))
