@@ -130,14 +130,16 @@
               (if (= ::none v) ;; nothing to emit
                 (do
                   (when (= ::closed stream-state)
-                    (swap! state-a assoc ::stream-state ::drained))
+                    (swap! state-a assoc ::stream-state ::drained)
+                    (when (some? handler)
+                      (stream.p/-on-complete handler)))
                   [::done])
 
                 (do ;; an actual emit!
                   (when (< demand Integer/MAX_VALUE)
                     (swap! state-a update ::demand dec))
 
-                  (let [r (stream.p/-handle handler sb v)]
+                  (let [r (stream.p/-on-event handler v)]
                     (if (promise/promise? r)
                       (promise/handle
                        r
@@ -356,7 +358,7 @@
                    ::stream-state ::errored
                    ::error err)
             (when-let [handler (-> state-a deref ::handler)]
-              (stream.p/-error handler this err))
+              (stream.p/-on-error handler err))
             true)
 
           false))))
@@ -369,7 +371,7 @@
                    assoc
                    ::stream-state ::closed)
             (when-let [handler (-> state-a deref ::handler)]
-              (stream.p/-close handler this))
+              (stream.p/-on-complete handler))
             true)
 
           false))))
@@ -381,19 +383,25 @@
           (throw (ex-info "handler already set" {:stream-buffer this}))
 
           (do
+            ;; give the handler a ref to this before any delivery
+            (stream.p/-on-subscribe handler this)
+
             (swap! state-a assoc ::handler handler)
             (let [{stream-state ::stream-state
                    err ::error} @state-a]
               (case stream-state
                 ::closed (do-emit this (promise/deferred promise-impl))
-                ::drained (stream.p/-close handler this)
-                ::errored (stream.p/-error handler this err)
-                ::open nil
+                ::drained (stream.p/-on-complete handler)
+                ::errored (stream.p/-on-error handler err)
+                ::open (do-emit this (promise/deferred promise-impl))
                 (throw (ex-info "unknown stream-state" {::stream-state stream-state})))
               true)))
 
-        (do
-          (swap! state-a assoc ::handler nil)
+        (if-let [h (-> state-a deref ::handler)]
+          (do
+            (swap! state-a assoc ::handler nil)
+            (stream.p/-on-subscribe h nil)
+            true)
           true)))))
 
 

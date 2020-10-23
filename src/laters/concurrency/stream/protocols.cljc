@@ -81,9 +81,10 @@
     "request the delivery of n objects"))
 
 (defprotocol IStreamBufferHandler
-  (-handle [p sb v])
-  (-close [p sb])
-  (-error [p sb err]))
+  (-on-subscribe [p sb])
+  (-on-event [p v])
+  (-on-complete [p])
+  (-on-error [p err]))
 
 (defprotocol IReadStream
   (-take!

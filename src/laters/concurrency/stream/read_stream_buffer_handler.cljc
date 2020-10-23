@@ -6,11 +6,15 @@
   (:import
    [java.util ArrayDeque]))
 
+(def handler-states [::unsubscribed ::subscribed ::completed ::errored])
+
 (defn initial-state
   []
-  {::handle-q (ArrayDeque.)
+  {::handler-state ::unsubscribed
+   ::stream-buffer nil
+   ::handle-q (ArrayDeque.)
    ::take-q (ArrayDeque.)
-   ::stream-buffer nil})
+   ::error nil})
 
 (defn fulfil-one-take
   "fulfil a single take if possible"
@@ -43,7 +47,36 @@
                                   take-q-size
                                   state-a]
   stream.p/IStreamBufferHandler
-  (-handle [this sb v]
+  (-on-subscribe [this sb]
+    (locking this
+      (let [{chs ::handler-state
+             csb ::stream-buffer
+             :as state} @state-a]
+        (cond
+          (and (some? csb) (some? sb))
+          (throw (ex-info "handler already subscribed" state))
+
+          (and (nil? csb) (some? sb) (= ::unsubscribed chs))
+          (swap! state-a assoc
+                 ::stream-buffer sb
+                 ::handler-state ::subscribed)
+
+          (and (nil? csb) (some? sb))
+          (throw (ex-info "handler not ::unsubscribed" state))
+
+          (and (some? csb) (nil? sb) (= ::subscribed chs))
+          (swap! state-a assoc
+                 ::stream-buffer nil
+                 ::handler-state ::unsubscribed)
+
+          (and (some? csb) (nil? sb))
+          (swap! state-a assoc
+                 ::stream-buffer nil)
+
+          :else
+          (throw (ex-info "unknown case" state))))))
+
+  (-on-event [this v]
     (locking this
       (let [{handle-q ::handle-q
              take-q ::take-q} @state-a
@@ -56,32 +89,55 @@
                           ::value v}))
 
         handle-r)))
-  (-close [this sb])
-  (-error [this sb err])
+
+  (-on-complete [this]
+    (locking [this]
+      (swap! state-a assoc ::handler-state ::completed)))
+
+  (-on-error [this err]
+    (locking [this]
+      (swap! state-a assoc
+             ::handler-state ::errored
+             ::error err)))
 
   stream.p/IReadStream
-  (-take! [this])
-  (-take! [this timeout])
-  (-take! [this timeout timeout-val])
+  (-take! [this]
+    (stream.p/-take! this nil nil nil))
+  (-take! [this timeout]
+    (stream.p/-take! this nil timeout nil))
+  (-take! [this timeout timeout-val]
+    (stream.p/-take! this nil timeout timeout-val))
   (-take! [this default-val timeout timeout-val]
     (locking this
-      (let [{handle-q ::handle-q
+      (let [{handler-state ::handler-state
+             stream-buffer ::stream-buffer
+             handle-q ::handle-q
              take-q ::take-q
-             stream-buffer ::stream-buffer} @state-a
-            take-r (promise/deferred promise-impl)
-            take-r (if timeout
-                     (promise/timeout take-r timeout timeout-val promise-impl)
-                     take-r)]
+             error ::error} @state-a]
 
-        ;; if we have a stream-buffer, request another message
-        (when (some? stream-buffer)
-          (stream.p/-request! stream-buffer 1))
+        (cond
+          (= ::completed handler-state)
+          (promise/resolved promise-impl default-val)
 
-        (.add take-q {::take-r take-r})
+          (= ::errored handler-state)
+          (promise/rejected promise-impl error)
 
-        (fulfil handle-q take-q)
+          :else
+          (let [take-r (promise/deferred promise-impl)
+                take-r (if timeout
+                         (promise/timeout take-r timeout timeout-val promise-impl)
+                         take-r)]
+            ;; add to take-q before requesting, so that
+            ;; any request gets fulfilled immediately
+            (.add take-q {::take-r take-r})
 
-        take-r)))
+            ;; if we have a stream-buffer, request another message
+            (when (some? stream-buffer)
+              (stream.p/-request! stream-buffer 1))
+
+            (fulfil handle-q take-q)
+
+            take-r)))))
 
   (-buffer [this buffer-size])
   (-buffer [this buffer-size overflow])
