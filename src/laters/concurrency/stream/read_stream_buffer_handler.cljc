@@ -4,7 +4,8 @@
    [laters.concurrency.promise.promesa :as promesa]
    [laters.concurrency.stream.protocols :as stream.p])
   (:import
-   [java.util ArrayDeque]))
+   [java.util ArrayDeque]
+   [java.io Writer]))
 
 (def handler-states [::unsubscribed ::subscribed ::completed ::errored])
 
@@ -148,3 +149,24 @@
   (-reduce [this f])
   (-reduce [this f initval])
   (-reduce [this f initval impl]))
+
+(defmethod print-method ReadStreamBufferHandler [rsbh ^Writer w]
+  (let [state (-> rsbh .-state-a deref)
+        print-state (-> state
+                        (select-keys [::handler-state
+                                      ::error]))]
+    (.write w "<< read-stream-buffer-handler: ")
+    (.write w (prn-str print-state))
+    (.write w " >>")))
+
+(defn read-stream-buffer-handler
+  ([] (read-stream-buffer-handler {}))
+  ([{promise-impl :stream/promise-impl
+     take-q-size :stream/take-q-size
+     :or {promise-impl promesa/default-impl
+          take-q-size 16384}}]
+   (let [st (initial-state)]
+     (->ReadStreamBufferHandler
+      promise-impl
+      take-q-size
+      (atom st)))))

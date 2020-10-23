@@ -4,7 +4,8 @@
    [laters.concurrency.promise.promesa :as promesa]
    [laters.concurrency.stream.protocols :as stream.p])
   (:import
-   [java.util ArrayDeque]))
+   [java.util ArrayDeque]
+   [java.io Writer]))
 
 ;; a buffer to implement parking puts
 
@@ -404,24 +405,37 @@
             true)
           true)))))
 
+(defmethod print-method StreamBuffer [sb ^Writer w]
+  (let [state (-> sb .-state-a deref)
+        print-state (-> state
+                        (select-keys [::stream-state
+                                      ::demand
+                                      ::handler
+                                      ::emitting
+                                      ::error]))]
+    (.write w "<< stream-buffer: ")
+    (.write w (prn-str print-state))
+    (.write w " >>")))
 
 (defn stream-buffer
-  [{promise-impl :stream/promise-impl
-    on-overflow :stream/on-overflow
-    buffer-size :stream/buffer-size
-    park-q-size :stream/park-q-size
-    executor :stream/executor
-    :or {promise-impl promesa/default-impl
-         on-overflow :stream.on-overflow/park
-         buffer-size 0
-         park-q-size 16384
-         executor nil}}]
-  (let [st (initial-state)]
-    (->StreamBuffer
-     promise-impl
-     on-overflow
-     buffer-size
-     park-q-size
-     (Object.)
-     executor
-     (atom st))))
+  ([]
+   (stream-buffer {}))
+  ([{promise-impl :stream/promise-impl
+     on-overflow :stream/on-overflow
+     buffer-size :stream/buffer-size
+     park-q-size :stream/park-q-size
+     executor :stream/executor
+     :or {promise-impl promesa/default-impl
+          on-overflow :stream.on-overflow/park
+          buffer-size 0
+          park-q-size 16384
+          executor nil}}]
+   (let [st (initial-state)]
+     (->StreamBuffer
+      promise-impl
+      on-overflow
+      buffer-size
+      park-q-size
+      (Object.)
+      executor
+      (atom st)))))
