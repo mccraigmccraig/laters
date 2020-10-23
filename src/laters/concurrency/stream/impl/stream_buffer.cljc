@@ -99,6 +99,12 @@
     :else
     ::none))
 
+(defn empty-pending?
+  [park-q buffer emit-slot]
+  (and (empty? park-q)
+       (empty? buffer)
+       (empty? emit-slot)))
+
 (defn do-emit-one
   "emit one - it doesn't really matter which thread
    this gets run on, or whether emit-ones from different
@@ -126,15 +132,14 @@
              (not (contains? terminal-states stream-state))
              (some? handler)
              (> demand 0))
-            ;; there is demand, but is there anything to emit
+            ;; there is demand and a handler, but is there anything to emit
             (let [v (next-emit park-q buffer emit-slot)]
 
               (if (= ::none v) ;; nothing to emit
                 (do
                   (when (= ::closed stream-state)
                     (swap! state-a assoc ::stream-state ::drained)
-                    (when (some? handler)
-                      (stream.p/-on-complete handler)))
+                    (stream.p/-on-complete handler))
                   [::done])
 
                 (do ;; an actual emit!
@@ -153,8 +158,19 @@
 
                       [::emitted-one r])))))
 
-            (not (contains? terminal-states stream-state))
-            ;; either no demand or no handler
+            (and (not (contains? terminal-states stream-state))
+                 (some? handler)
+                 (= ::closed stream-state)
+                 (= demand 0)
+                 (empty-pending? park-q buffer emit-slot))
+            ;; handler, but closed and nothing pending
+            (do
+              (swap! state-a assoc ::stream-state ::drained)
+              (stream.p/-on-complete handler)
+              [::done])
+
+            (and (not (contains? terminal-states stream-state)))
+            ;; nothing deliverable or nowhere to deliver
             [::done]
 
             (= ::errored stream-state)
