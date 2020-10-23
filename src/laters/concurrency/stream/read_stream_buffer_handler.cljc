@@ -151,10 +151,15 @@
   (-reduce [this f initval impl]))
 
 (defmethod print-method ReadStreamBufferHandler [rsbh ^Writer w]
-  (let [state (-> rsbh .-state-a deref)
+  (let [{handle-q ::handle-q
+         take-q ::take-q
+         error ::error
+         :as state} (-> rsbh .-state-a deref)
         print-state (-> state
-                        (select-keys [::handler-state
-                                      ::error]))]
+                        (select-keys [::handler-state])
+                        (assoc ::handle-q (count handle-q)
+                               ::take-q (count take-q)
+                               ::error (some? error)))]
     (.write w "<< read-stream-buffer-handler: ")
     (.write w (prn-str print-state))
     (.write w " >>")))

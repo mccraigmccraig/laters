@@ -14,7 +14,9 @@
   (-rejected [_ err]
     (promesa/rejected err))
   (-deferred [_]
-    (promesa/deferred)))
+    (promesa/deferred))
+  (-promise? [_ p]
+    (promesa/promise? p)))
 
 (defn promesa-then
   ([p f]

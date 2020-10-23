@@ -107,7 +107,8 @@
   (locking (.-lock sb)
     ;; re-entrancy protection
     (if (not (true? (-> sb .-state-a deref ::emitting?)))
-      (let [state-a (.-state-a sb)
+      (let [promise-impl (.-promise-impl sb)
+            state-a (.-state-a sb)
             {stream-state ::stream-state
              demand ::demand
              handler ::handler
@@ -141,16 +142,20 @@
                     (swap! state-a update ::demand dec))
 
                   (let [r (stream.p/-on-event handler v)]
-                    (if (promise/promise? r)
+                    (if (promise/promise? promise-impl r)
                       (promise/handle
                        r
                        (fn [success error]
                          (if (some? error)
                            [::error error]
                            [::emitted-one success]))
-                       (.promise-impl sb))
+                       promise-impl)
 
                       [::emitted-one r])))))
+
+            (not (contains? terminal-states stream-state))
+            ;; either no demand or no handler
+            [::done]
 
             (= ::errored stream-state)
             [::error error]
@@ -181,7 +186,7 @@
   ;; cause do-emit to be called again
   (try
     (loop [r (do-emit-one sb)]
-      (if (promise/promise? r)
+      (if (promise/promise? (.-promise-impl sb) r)
         (promise/handle
          r
          (fn [[k v] error]
@@ -214,7 +219,7 @@
     (catch Throwable e
       (promise/reject!
        completion-p
-       (ex-info "do-emit error" {:state-buffer sb})))))
+       (ex-info "do-emit error" {:state-buffer sb} e)))))
 
 (defn do-emit
   "if there's no executor then emit on the caller's thread,
@@ -249,7 +254,7 @@
                        (if (<= demand (- Integer/MAX_VALUE demand))
                          (+ demand n)
                          Integer/MAX_VALUE)))
-              (do-emit this (promise/deferred))
+              (do-emit this (promise/deferred promise-impl))
               true)
             false)))
       false))
@@ -321,7 +326,7 @@
                                     promise-impl)
                                    completion-p)]
 
-                (.add emit-slot {::completion-p completion-p
+                (.add park-q {::completion-p completion-p
                               ::value v})
                 ;; throw away the emit completion - the response
                 ;; completes when the value gets added to the buffer
@@ -340,15 +345,17 @@
 
               (= ::closed stream-state)
               ;; stream is closed
-              (promise/resolved false)
+              (promise/resolved promise-impl false)
 
               (= ::errored stream-state)
               ;; stream is errored
-              (promise/rejected error)
+              (promise/rejected promise-impl error)
 
               :else
-              (promise/rejected (ex-info "unknown stream-state"
-                                         {::stream-state stream-state}))))))
+              (promise/rejected
+               promise-impl
+               (ex-info "unknown stream-state"
+                        {::stream-state stream-state}))))))
   (-error! [this err]
     (locking lock
       (let [{stream-state ::stream-state} @state-a]
@@ -406,13 +413,20 @@
           true)))))
 
 (defmethod print-method StreamBuffer [sb ^Writer w]
-  (let [state (-> sb .-state-a deref)
+  (let [{buffer ::buffer
+         park-q ::park-q
+         emit-slot ::emit-slot
+         error ::error
+         :as state} (-> sb .-state-a deref)
         print-state (-> state
                         (select-keys [::stream-state
                                       ::demand
                                       ::handler
-                                      ::emitting
-                                      ::error]))]
+                                      ::emitting])
+                        (assoc ::buffer (count buffer)
+                               ::park-q (count park-q)
+                               ::emit-slot (count emit-slot)
+                               ::error (some-> error .getMessage)))]
     (.write w "<< stream-buffer: ")
     (.write w (prn-str print-state))
     (.write w " >>")))
