@@ -12,10 +12,10 @@
 ;; modelled after vertx io.vertx.core.streams.impl.InboundBuffer
 ;; https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/streams/impl/InboundBuffer.java
 
-(def states [::open ::closed ::drained ::errored])
+(def states [::open ::closed ::drained ::errored ::errored-drained])
 
-(def terminal-states #{::drained ::errored})
-(def closed-or-terminal-states (conj terminal-states ::closed))
+(def terminal-states #{::drained ::errored-drained})
+(def closed-or-terminal-states (conj terminal-states ::closed ::errored))
 
 (def on-overflow [:stream.on-overflow/park
                   :stream.on-overflow/error
@@ -160,14 +160,23 @@
 
             (and (not (contains? terminal-states stream-state))
                  (some? handler)
-                 (= ::closed stream-state)
+                 (#{ ::closed ::errored} stream-state)
                  (= demand 0)
                  (empty-pending? park-q buffer emit-slot))
             ;; handler, but closed and nothing pending
-            (do
-              (swap! state-a assoc ::stream-state ::drained)
-              (stream.p/-on-complete handler)
-              [::done])
+            (case stream-state
+
+              ::closed
+              (do
+                (swap! state-a assoc ::stream-state ::drained)
+                (stream.p/-on-complete handler)
+                [::done])
+
+              ::errored
+              (do
+                (swap! state-a assoc ::stream-state ::errored-drained)
+                (stream.p/-on-error handler error)
+                [::done]))
 
             (and (not (contains? terminal-states stream-state)))
             ;; nothing deliverable or nowhere to deliver
@@ -195,7 +204,7 @@
    emitting until either demand is satisfied or there are no items to
    emit.
    if the handler returns a promise, then chain emission to resolution of
-   that promise, if the handler returns sync then loop emission
+   that promise, if the handler returns sync then loop a trampoline.
    resolve the completion-p when done. "
   [sb completion-p]
   ;; re-entrancy protection - handling a message may
@@ -375,14 +384,12 @@
   (-error! [this err]
     (locking lock
       (let [{stream-state ::stream-state} @state-a]
-        (if (not (contains? terminal-states stream-state))
+        (if (not (contains? closed-or-terminal-states stream-state))
           (do
             (swap! state-a
                    assoc
                    ::stream-state ::errored
                    ::error err)
-            (when-let [handler (-> state-a deref ::handler)]
-              (stream.p/-on-error handler err))
             (do-emit this (promise/deferred promise-impl))
             true)
 
