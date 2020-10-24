@@ -163,7 +163,9 @@
                  (#{ ::closed ::errored} stream-state)
                  (= demand 0)
                  (empty-pending? park-q buffer emit-slot))
-            ;; handler, but closed and nothing pending
+            ;; we have a handler, but are ::closed or ::errored,
+            ;; with no pending emits - so transition to terminal
+            ;; state and notify handler
             (case stream-state
 
               ::closed
