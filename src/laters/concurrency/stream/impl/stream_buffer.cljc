@@ -178,7 +178,9 @@
               (do
                 (swap! state-a assoc ::stream-state ::errored-drained)
                 (stream.p/-on-error handler error)
-                [::done]))
+                [::done])
+
+              (throw (ex-info "unknown ::stream-state" state)))
 
             (and (not (contains? terminal-states stream-state)))
             ;; nothing deliverable or nowhere to deliver
