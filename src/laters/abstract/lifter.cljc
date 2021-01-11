@@ -89,21 +89,21 @@
    an untagged MV"
   [lifter-registry m mv]
   (cond
-    (= m (t.p/-ctx mv))
+    (= m (t.p/-tagged-ctx mv))
     (t/untag mv)
 
     (some? lifter-registry)
     (let [lifter (p/-match-lifter
                   lifter-registry
                   (m.p/-type m)
-                  (m.p/-type (t.p/-ctx mv)))]
+                  (m.p/-type (t.p/-tagged-ctx mv)))]
       (if (some? lifter)
         (p/-lift-untagged lifter mv)
 
         (throw
          (ex-info
           "map lifter: no lifter registered"
-          {:from (m.p/-type (t.p/-ctx mv))
+          {:from (m.p/-type (t.p/-tagged-ctx mv))
            :to (m.p/-type m)
            :mv mv}))))
 
@@ -111,7 +111,7 @@
     (throw
      (ex-info
       "no lifter registry"
-      {:from (t.p/-ctx mv)
+      {:from (t.p/-tagged-ctx mv)
        :to m
        :tmv mv}))))
 

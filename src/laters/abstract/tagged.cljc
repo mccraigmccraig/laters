@@ -1,20 +1,23 @@
 (ns laters.abstract.tagged
   (:require
-   [laters.abstract.tagged.protocols :as p]))
+   [laters.abstract.tagged.protocols :as p]
+   [laters.abstract.monad.protocols :as m.p])
+  (:import
+   [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]))
 
-(defrecord Tagged [ctx mv]
-  p/ITagged
-  (-ctx [_] ctx)
-  (-mv [_] mv))
+(defrecord TaggedMv [^ITaggedCtx ctx mv]
+  p/ITaggedMv
+  (-tagged-ctx [_] ctx)
+  (-untagged-mv [_] mv))
 
 (defn ctx
   [mv]
-  (p/-ctx mv))
+  (p/-tagged-ctx mv))
 
-(defn tag
-  [ctx mv]
-  (Tagged. ctx mv))
+(defn ^ITaggedMv tag
+  [^ITaggedCtx t-ctx mv]
+  (TaggedMv. t-ctx mv))
 
 (defn untag
-  [bmv]
-  (p/-mv bmv))
+  [^ITaggedMv tmv]
+  (p/-untagged-mv tmv))

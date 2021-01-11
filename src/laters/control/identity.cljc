@@ -3,27 +3,64 @@
    [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
    [laters.abstract.tagged :as t]
-   [laters.abstract.lifter :as l]))
+   [laters.abstract.tagged.protocols :as tag.p]
+   [laters.abstract.lifter :as l])
+  (:import
+   [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]))
 
-(deftype Identity [lifter]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; simple Identity context
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(deftype Identity []
   m.p/Monad
   (-type [m]
     [::Identity])
   (-bind [m mv f]
-    (l/lift
-     lifter
-     m
-     (f (l/lift-untag lifter m mv))))
+    (f mv))
   (-return [m v]
-    (t/tag m v)))
+    v))
 
-(def identity-ctx (Identity. nil))
+(def identity-ctx (Identity.))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; TaggedIdentity context
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn ^ITaggedMv tagged-bind
+  [^ITaggedCtx ctx ^ITaggedMv tmv tmf]
+  (let [mv (t/untag tmv)
+        tr (m.p/-bind (tag.p/-wrapped-ctx ctx) mv tmf)]
+    ;; lift here
+    tr))
+
+(defn ^ITaggedMv tagged-return
+  [^ITaggedCtx ctx v]
+  (t/tag ctx v))
+
+(deftype TaggedIdentity [lifter]
+  tag.p/ITaggedCtx
+  (-wrapped-ctx [this] identity-ctx)
+
+  m.p/Monad
+  (-bind [m tmv tmf]
+    (tagged-bind m tmv tmf))
+  (-return [m v]
+    (tagged-return m v)))
+
+(def tagged-identity-ctx (TaggedIdentity. nil))
+
 
 (comment
   (require '[laters.abstract.monad :as m])
   (require '[laters.control.identity :as m.id])
 
   (m/mlet m.id/identity-ctx
+    [a (m/return 1)
+     b (m/return 2)]
+    (m/return (+ a b)))
+
+  (m/mlet m.id/tagged-identity-ctx
     [a (m/return 1)
      b (m/return 2)]
     (m/return (+ a b))))

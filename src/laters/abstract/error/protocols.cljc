@@ -2,4 +2,4 @@
 
 (defprotocol MonadError
   (-reject [m v])
-  (-catch [m mv handler]))
+  (-catch [m mv err-handler]))

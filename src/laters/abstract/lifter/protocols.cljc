@@ -1,7 +1,7 @@
 (ns laters.abstract.lifter.protocols)
 
 (defprotocol ILifter
-  (-lift-untagged [_ mv]
+  (-lift-untagged [_ tmv]
     "lift a tagged-mv, returning
      an untagged mv"))
 
