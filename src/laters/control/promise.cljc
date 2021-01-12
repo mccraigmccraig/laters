@@ -51,7 +51,7 @@
 
 (defn ^ITaggedMv tagged-return
   [^ITaggedCtx ctx v]
-  (let [umv (m.p/-return (tag.p/-wrapped-ctx ctx) v)]
+  (let [umv (m.p/-return (tag.p/-inner-ctx ctx) v)]
     (t/tag ctx umv)))
 
 (defn ^ITaggedMv tagged-promise-join
@@ -73,24 +73,24 @@
   (let [mv (t/untag tmv)
         ;; this wraps the outer tagged-mv in another promise
         ;; which promesa can't join because of the tag
-        r (m.p/-bind (tag.p/-wrapped-ctx ctx) mv tmf)]
+        r (m.p/-bind (tag.p/-inner-ctx ctx) mv tmf)]
 
     ;; so we explicitly join
     (tagged-promise-join ctx r)))
 
 (defn ^ITaggedMv tagged-promise-reject
   [^ITaggedCtx ctx v]
-  (t/tag ctx (e.p/-reject (tag.p/-wrapped-ctx ctx) v)))
+  (t/tag ctx (e.p/-reject (tag.p/-inner-ctx ctx) v)))
 
 (defn ^ITaggedMv tagged-promise-catch
   [^ITaggedCtx ctx tmv h]
   (let [mv (t/untag tmv)
-        r (e.p/-catch (tag.p/-wrapped-ctx ctx) mv h)]
+        r (e.p/-catch (tag.p/-inner-ctx ctx) mv h)]
     (tagged-promise-join ctx r)))
 
 (deftype TaggedPromise [promise-opts lifter]
   tag.p/ITaggedCtx
-  (-wrapped-ctx [this] promise-ctx)
+  (-inner-ctx [this] promise-ctx)
 
   m.p/Monad
   (-bind [this tmv tmf]

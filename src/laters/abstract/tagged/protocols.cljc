@@ -9,4 +9,4 @@
 ;; for a context presenting a tagged interface,
 ;; implemented by wrapping a plain context
 (defprotocol ITaggedCtx
-  (-wrapped-ctx [_]))
+  (-inner-ctx [_]))

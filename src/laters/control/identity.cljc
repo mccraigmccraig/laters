@@ -30,7 +30,7 @@
 (defn ^ITaggedMv tagged-bind
   [^ITaggedCtx ctx ^ITaggedMv tmv tmf]
   (let [mv (t/untag tmv)
-        tr (m.p/-bind (tag.p/-wrapped-ctx ctx) mv tmf)]
+        tr (m.p/-bind (tag.p/-inner-ctx ctx) mv tmf)]
     ;; lift here
     tr))
 
@@ -40,7 +40,7 @@
 
 (deftype TaggedIdentity [lifter]
   tag.p/ITaggedCtx
-  (-wrapped-ctx [this] identity-ctx)
+  (-inner-ctx [this] identity-ctx)
 
   m.p/Monad
   (-bind [m tmv tmf]
