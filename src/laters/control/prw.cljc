@@ -55,8 +55,6 @@
 
 ;; ({:monad.reader/env r})->Promise<{:monad/val v :monad.writer/output w}
 (deftype PRW [promise-impl lifter]
-  pctx.p/IPromiseCtx
-  (-promise-impl [_] promise-impl)
   m.p/Monad
   (-type [m]
     (into [::PRW] (p/type promise-impl)))

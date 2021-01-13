@@ -27,6 +27,10 @@
 ;;; TaggedIdentity context
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn tagged-type
+  [^ITaggedCtx ctx]
+  [::Tagged (m.p/-type (tag.p/-inner-ctx ctx))])
+
 (defn ^ITaggedMv tagged-bind
   [^ITaggedCtx ctx ^ITaggedMv tmv tmf]
   (let [mv (t/untag tmv)
@@ -43,6 +47,8 @@
   (-inner-ctx [this] identity-ctx)
 
   m.p/Monad
+  (-type [m]
+    (tagged-type m))
   (-bind [m tmv tmf]
     (tagged-bind m tmv tmf))
   (-return [m v]
