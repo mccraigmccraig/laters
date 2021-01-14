@@ -69,6 +69,8 @@
 (deftype TaggedMaybe []
   tag.p/ITaggedCtx
   (-inner-ctx [this] maybe-ctx)
+  (-tag [this inner-mv]
+    (t/tagged-plain this inner-mv))
 
   m.p/Monad
   (-type [m]
