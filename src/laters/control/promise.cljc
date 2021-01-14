@@ -39,11 +39,7 @@
         (promesa/handle mv handler executor)
         (promesa/handle mv handler)))))
 
-(defn make-promise-ctx
-  [executor]
-  (Promise. executor))
-
-(def promise-ctx (make-promise-ctx nil))
+(def promise-ctx (->Promise nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; TaggedPromise context
@@ -88,9 +84,11 @@
         r (e.p/-catch (tag.p/-inner-ctx ctx) mv h)]
     (tagged-promise-join ctx r)))
 
-(deftype TaggedPromise [promise-opts lifter]
+(deftype TaggedPromise [lifter]
   tag.p/ITaggedCtx
   (-inner-ctx [this] promise-ctx)
+  (-tag [this inner-mv]
+    (t/->TaggedPlainMv this inner-mv))
 
   m.p/Monad
   (-bind [this tmv tmf]
@@ -105,16 +103,13 @@
     (tagged-promise-catch this tmv handler)))
 
 
-(defn make-tagged-promise-ctx
-  [promise-opts lifter]
-  (TaggedPromise. promise-opts lifter))
-
 (def tagged-promise-ctx
-  (make-tagged-promise-ctx {} nil))
+  (->TaggedPromise nil))
 
 (comment
   (require '[laters.abstract.monad :as m])
   (require '[laters.abstract.error :as e])
+  (require '[laters.abstract.runnable :as r])
   (require '[laters.control.identity :as m.id])
   (require '[laters.control.promise :as m.pr])
 
