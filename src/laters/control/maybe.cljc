@@ -4,8 +4,7 @@
    [laters.abstract.monad :as m]
    [laters.abstract.tagged :as t]
    [laters.abstract.tagged.protocols :as tag.p]
-   [laters.abstract.lifter :as l]
-   [laters.control.identity :as m.id])
+   [laters.abstract.lifter :as l])
   (:import
    [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]))
 
@@ -74,11 +73,11 @@
 
   m.p/Monad
   (-type [m]
-    (m.id/tagged-type m))
+    (t/tagged-type m))
   (-bind [m tmv tmf]
-    (m.id/tagged-bind m tmv tmf))
+    (t/tagged-bind m tmv tmf))
   (-return [m v]
-    (m.id/tagged-return m v))
+    (t/tagged-return m v))
 
   m.p/MonadZero
   (-mzero [m]

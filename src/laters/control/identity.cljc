@@ -27,23 +27,6 @@
 ;;; TaggedIdentity context
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn tagged-type
-  [^ITaggedCtx ctx]
-  [::Tagged (m.p/-type (tag.p/-inner-ctx ctx))])
-
-(defn ^ITaggedMv tagged-bind
-  [^ITaggedCtx ctx ^ITaggedMv tmv tmf]
-  (let [mv (t/untag tmv)
-        tr (m.p/-bind (tag.p/-inner-ctx ctx) mv tmf)]
-    ;; lift here
-    tr))
-
-(defn ^ITaggedMv tagged-return
-  [^ITaggedCtx ctx v]
-  (t/tag
-   ctx
-   (m.p/-return (tag.p/-inner-ctx ctx) v)))
-
 (deftype TaggedIdentity [lifter]
   tag.p/ITaggedCtx
   (-inner-ctx [this] identity-ctx)
@@ -52,14 +35,13 @@
 
   m.p/Monad
   (-type [m]
-    (tagged-type m))
+    (t/tagged-type m))
   (-bind [m tmv tmf]
-    (tagged-bind m tmv tmf))
+    (t/tagged-bind m tmv tmf))
   (-return [m v]
-    (tagged-return m v)))
+    (t/tagged-return m v)))
 
 (def tagged-identity-ctx (TaggedIdentity. nil))
-
 
 (comment
   (require '[laters.abstract.monad :as m])

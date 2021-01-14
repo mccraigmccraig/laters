@@ -5,8 +5,7 @@
    [laters.abstract.runnable :as r]
    [laters.abstract.tagged :as t]
    [laters.abstract.tagged.protocols :as tag.p]
-   [laters.abstract.lifter :as l]
-   [laters.control.identity :as m.id])
+   [laters.abstract.lifter :as l])
   (:import
    [clojure.lang IFn]
    [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]))
@@ -75,29 +74,31 @@
 
 (defn ^ITaggedMv tagged-ask
   [^ITaggedCtx ctx]
-  (r/tagged-runnable ctx (-ask (tag.p/-inner-ctx ctx))))
+  (t/tag ctx (-ask (tag.p/-inner-ctx ctx))))
 
 (defn ^ITaggedMv tagged-asks
   [^ITaggedCtx ctx f]
-  (r/tagged-runnable ctx (-asks (tag.p/-inner-ctx ctx) f)))
+  (t/tag ctx (-asks (tag.p/-inner-ctx ctx) f)))
 
 (defn ^ITaggedMv tagged-local
   [^ITaggedCtx ctx f tmv]
-  (r/tagged-runnable
+  (t/tag
    ctx
    (-local (tag.p/-inner-ctx ctx) f (t/untag tmv))))
 
 (deftype TaggedReader []
   tag.p/ITaggedCtx
   (-inner-ctx [this] reader-ctx)
+  (-tag [this inner-mv]
+    (r/tagged-runnable this inner-mv))
 
   m.p/Monad
   (-type [m]
-    (m.id/tagged-type m))
+    (t/tagged-type m))
   (-bind [m mv f]
-    (m.id/tagged-bind m mv f))
+    (t/tagged-bind m mv f))
   (-return [m v]
-    (m.id/tagged-return m v))
+    (t/tagged-return m v))
   MonadReader
   (-ask [m]
     (tagged-ask m))
@@ -139,10 +140,9 @@
    {:monad.reader/env {:foo 10}})
 
   (r/run
-   m.reader/tagged-reader-ctx
-   (m/mlet m.reader/tagged-reader-ctx
-     [a (m.reader/ask)
-      b (m/return 3)]
-     (m/return (+ a b)))
-   {:monad.reader/env 10})
+    (m/mlet m.reader/tagged-reader-ctx
+      [a (m.reader/ask)
+       b (m/return 3)]
+      (m/return (+ a b)))
+    {:monad.reader/env 10})
   )

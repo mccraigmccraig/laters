@@ -20,15 +20,15 @@
   [f]
   (PlainRunnable. f))
 
-(deftype TaggedRunnable [^ITaggedCtx ctx ^IRunnable f]
+(defrecord TaggedRunnable [^ITaggedCtx ctx ^IRunnable f]
   tagged.p/ITaggedMv
   (-tagged-ctx [_] ctx)
   (-inner-mv [_] f)
 
   runnable.p/IRunnable
   (-run [_ args]
-    (apply f args)))
+    (runnable.p/-run f args)))
 
 (defn tagged-runnable
   [ctx f]
-  (TaggedRunnable. ctx f))
+  (->TaggedRunnable ctx f))
