@@ -8,13 +8,14 @@
    [clojure.lang IFn]))
 
 (defn run
-  [m & args]
-  (runnable.p/-run m args))
+  ([m] (run m nil))
+  ([m arg]
+   (runnable.p/-run m arg)))
 
 (deftype PlainRunnable [f]
   runnable.p/IRunnable
-  (-run [_ args]
-    (apply f args)))
+  (-run [_ arg]
+    (f arg)))
 
 (defn plain-runnable
   [f]
@@ -26,8 +27,8 @@
   (-inner-mv [_] f)
 
   runnable.p/IRunnable
-  (-run [_ args]
-    (runnable.p/-run f args)))
+  (-run [_ arg]
+    (runnable.p/-run f arg)))
 
 (defn tagged-runnable
   [ctx f]
