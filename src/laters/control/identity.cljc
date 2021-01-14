@@ -40,7 +40,9 @@
 
 (defn ^ITaggedMv tagged-return
   [^ITaggedCtx ctx v]
-  (t/tag ctx v))
+  (t/tag
+   ctx
+   (m.p/-return (tag.p/-inner-ctx ctx) v)))
 
 (deftype TaggedIdentity [lifter]
   tag.p/ITaggedCtx
