@@ -47,6 +47,8 @@
 (deftype TaggedIdentity [lifter]
   tag.p/ITaggedCtx
   (-inner-ctx [this] identity-ctx)
+  (-tag [this inner-mv]
+    (t/tagged-plain this inner-mv))
 
   m.p/Monad
   (-type [m]

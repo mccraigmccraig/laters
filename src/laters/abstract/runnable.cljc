@@ -23,7 +23,7 @@
 (deftype TaggedRunnable [^ITaggedCtx ctx ^IRunnable f]
   tagged.p/ITaggedMv
   (-tagged-ctx [_] ctx)
-  (-untagged-mv [_] f)
+  (-inner-mv [_] f)
 
   runnable.p/IRunnable
   (-run [_ args]

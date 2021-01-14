@@ -4,9 +4,10 @@
 ;; a marker type - and support generic lifts
 (defprotocol ITaggedMv
   (-tagged-ctx [_])
-  (-untagged-mv [_]))
+  (-inner-mv [_]))
 
 ;; for a context presenting a tagged interface,
 ;; implemented by wrapping a plain context
 (defprotocol ITaggedCtx
-  (-inner-ctx [_]))
+  (-inner-ctx [_])
+  (-tag [_ inner-mv]))

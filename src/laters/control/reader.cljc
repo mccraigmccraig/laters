@@ -61,8 +61,7 @@
      (fn [{env :monad.reader/env}] {:monad/val env})))
   (-asks [m f]
     (r/plain-runnable
-     (fn [{env :monad.reader/env :as arg}]
-       (r/run (-ask m) (assoc arg :monad.reader/env (f env))))))
+     (fn [{env :monad.reader/env}] {:monad/val (f env)})))
   (-local [m f mv]
     (r/plain-runnable
      (fn [{env :monad.reader/env}]
@@ -76,15 +75,15 @@
 
 (defn ^ITaggedMv tagged-ask
   [^ITaggedCtx ctx]
-  (t/tag ctx (-ask (tag.p/-inner-ctx ctx))))
+  (r/tagged-runnable ctx (-ask (tag.p/-inner-ctx ctx))))
 
 (defn ^ITaggedMv tagged-asks
   [^ITaggedCtx ctx f]
-  (t/tag ctx (-asks (tag.p/-inner-ctx ctx) f)))
+  (r/tagged-runnable ctx (-asks (tag.p/-inner-ctx ctx) f)))
 
 (defn ^ITaggedMv tagged-local
   [^ITaggedCtx ctx f tmv]
-  (t/tag
+  (r/tagged-runnable
    ctx
    (-local (tag.p/-inner-ctx ctx) f (t/untag tmv))))
 
@@ -139,7 +138,7 @@
      (m/return (* a b)))
    {:monad.reader/env {:foo 10}})
 
-  (m.reader/run-reader
+  (r/run
    m.reader/tagged-reader-ctx
    (m/mlet m.reader/tagged-reader-ctx
      [a (m.reader/ask)
