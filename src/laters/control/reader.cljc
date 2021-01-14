@@ -5,15 +5,11 @@
    [laters.abstract.runnable :as r]
    [laters.abstract.tagged :as t]
    [laters.abstract.tagged.protocols :as tag.p]
-   [laters.abstract.lifter :as l])
+   [laters.abstract.lifter :as l]
+   [laters.control.reader.protocols :as reader.p])
   (:import
    [clojure.lang IFn]
    [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]))
-
-(defprotocol MonadReader
-  (-ask [m])
-  (-asks [m f])
-  (-local [m f mv]))
 
 (deftype ReaderMv [f]
   IFn
@@ -22,21 +18,21 @@
 
 (defmacro ask
   ([m]
-   `(-ask ~m))
+   `(reader.p/-ask ~m))
   ([]
-   `(-ask ~'this-monad##)))
+   `(reader.p/-ask ~'this-monad##)))
 
 (defmacro local
   ([m f mv]
-   `(-local ~m ~f ~mv))
+   `(reader.p/-local ~m ~f ~mv))
   ([f mv]
-   `(-local ~'this-monad## ~f ~mv)))
+   `(reader.p/-local ~'this-monad## ~f ~mv)))
 
 (defmacro asks
   ([m f]
-   `(-asks ~m ~f))
+   `(reader.p/-asks ~m ~f))
   ([f]
-   `(-asks ~'this-monad## ~f)))
+   `(reader.p/-asks ~'this-monad## ~f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; simple Reader context
@@ -54,7 +50,7 @@
   (-return [m v]
     (r/plain-runnable
      (fn [_] {:monad/val v})))
-  MonadReader
+  reader.p/MonadReader
   (-ask [m]
     (r/plain-runnable
      (fn [{env :monad.reader/env}] {:monad/val env})))
@@ -74,17 +70,17 @@
 
 (defn ^ITaggedMv tagged-ask
   [^ITaggedCtx ctx]
-  (t/tag ctx (-ask (tag.p/-inner-ctx ctx))))
+  (t/tag ctx (reader.p/-ask (tag.p/-inner-ctx ctx))))
 
 (defn ^ITaggedMv tagged-asks
   [^ITaggedCtx ctx f]
-  (t/tag ctx (-asks (tag.p/-inner-ctx ctx) f)))
+  (t/tag ctx (reader.p/-asks (tag.p/-inner-ctx ctx) f)))
 
 (defn ^ITaggedMv tagged-local
   [^ITaggedCtx ctx f tmv]
   (t/tag
    ctx
-   (-local (tag.p/-inner-ctx ctx) f (t/untag tmv))))
+   (reader.p/-local (tag.p/-inner-ctx ctx) f (t/untag tmv))))
 
 (deftype TaggedReader []
   tag.p/ITaggedCtx
@@ -99,7 +95,7 @@
     (t/tagged-bind m mv f))
   (-return [m v]
     (t/tagged-return m v))
-  MonadReader
+  reader.p/MonadReader
   (-ask [m]
     (tagged-ask m))
   (-asks [m f]
