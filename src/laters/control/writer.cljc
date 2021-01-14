@@ -3,20 +3,35 @@
    [laters.abstract.monad.protocols :as m.p]
    [laters.abstract.monad :as m]
    [laters.abstract.tagged :as t]
-   [laters.abstract.lifter :as l])
+   [laters.abstract.lifter :as l]
+   [laters.control.writer.protocols :as writer.p])
   (:import
    [clojure.lang PersistentVector]))
 
-(defprotocol MonadWriter
-  (-tell [m v])
-  (-listen [m mv])
-  (-pass [m mv]))
+(defmacro tell
+  ([m v]
+   `(writer.p/-tell ~m ~v))
+  ([v]
+   `(writer.p/-tell ~'this-monad## ~v)))
 
-(defprotocol MonadWriterPass
-  (-as-vec [_]))
+(defmacro listen
+  ([m mv]
+   `(writer.p/-listen ~m ~mv))
+  ([mv]
+   `(writer.p/-listen ~'this-monad## ~mv)))
+
+(defmacro pass
+  ([m mv]
+   `(writer.p/-pass ~m ~mv))
+  ([mv]
+   `(writer.p/-pass ~'this-monad## ~mv)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; simple Writer context
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (extend PersistentVector
-  MonadWriterPass
+  writer.p/MonadWriterPass
   {:-as-vec (fn [this] this)})
 
 ;; an unusual writer - values are fns of an arg, returning
@@ -44,7 +59,7 @@
        {:monad.writer/output nil
         :monad/val v})))
 
-  MonadWriter
+  writer.p/MonadWriter
   (-tell [m v]
     (t/tag
      m
@@ -66,27 +81,9 @@
      (fn [_]
        (let [{w :monad.writer/output
               pass-val :monad/val} ((l/lift-untag lifter m mv) {})
-             [val f] (-as-vec pass-val)]
+             [val f] (writer.p/-as-vec pass-val)]
          {:monad.writer/output (f w)
           :monad/val val})))))
-
-(defmacro tell
-  ([m v]
-   `(-tell ~m ~v))
-  ([v]
-   `(-tell ~'this-monad## ~v)))
-
-(defmacro listen
-  ([m mv]
-   `(-listen ~m ~mv))
-  ([mv]
-   `(-listen ~'this-monad## ~mv)))
-
-(defmacro pass
-  ([m mv]
-   `(-pass ~m ~mv))
-  ([mv]
-   `(-pass ~'this-monad## ~mv)))
 
 (def writer-ctx (Writer. nil))
 

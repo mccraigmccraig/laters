@@ -11,11 +11,6 @@
    [clojure.lang IFn]
    [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]))
 
-(deftype ReaderMv [f]
-  IFn
-  (invoke [_ env]
-    (f env)))
-
 (defmacro ask
   ([m]
    `(reader.p/-ask ~m))
@@ -62,7 +57,7 @@
      (fn [{env :monad.reader/env}]
        (r/run mv {:monad.reader/env (f env)})))))
 
-(def reader-ctx (Reader.))
+(def reader-ctx (->Reader))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; TaggedReader context
@@ -103,7 +98,7 @@
   (-local [m f mv]
     (tagged-local m f mv)))
 
-(def tagged-reader-ctx (TaggedReader.))
+(def tagged-reader-ctx (->TaggedReader))
 
 (comment
   (require '[laters.abstract.monad :as m])

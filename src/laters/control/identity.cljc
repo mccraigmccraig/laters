@@ -21,7 +21,7 @@
   (-return [m v]
     v))
 
-(def identity-ctx (Identity.))
+(def identity-ctx (->Identity))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; TaggedIdentity context
@@ -41,7 +41,7 @@
   (-return [m v]
     (t/tagged-return m v)))
 
-(def tagged-identity-ctx (TaggedIdentity. nil))
+(def tagged-identity-ctx (->TaggedIdentity nil))
 
 (comment
   (require '[laters.abstract.monad :as m])

@@ -33,11 +33,7 @@
   []
   `(-nothing ~'this-monad##))
 
-(defn make-maybe-ctx
-  []
-  (Maybe.))
-
-(def maybe-ctx (make-maybe-ctx))
+(def maybe-ctx (->Maybe))
 
 ;; (def maybe-lifters
 ;;   {[::m.id/Identity] t/untag})
@@ -83,7 +79,7 @@
   (-mzero [m]
     (tagged-zero m)))
 
-(def tagged-maybe-ctx (TaggedMaybe.))
+(def tagged-maybe-ctx (->TaggedMaybe))
 
 (comment
   (require '[laters.abstract.monad :as m])
