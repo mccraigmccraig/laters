@@ -1,7 +1,6 @@
 (ns laters.control.identity
   (:require
    [laters.abstract.monad.protocols :as m.p]
-   [laters.abstract.monad :as m]
    [laters.abstract.tagged :as t]
    [laters.abstract.tagged.protocols :as tag.p]
    [laters.abstract.lifter :as l])
@@ -18,6 +17,8 @@
     [::Identity])
   (-bind [m mv f]
     (f mv))
+  (-join [m mmv]
+    mmv)
   (-return [m v]
     v))
 
@@ -42,17 +43,3 @@
     (t/tagged-return m v)))
 
 (def tagged-identity-ctx (->TaggedIdentity nil))
-
-(comment
-  (require '[laters.abstract.monad :as m])
-  (require '[laters.control.identity :as m.id])
-
-  (m/mlet m.id/identity-ctx
-    [a (m/return 1)
-     b (m/return 2)]
-    (m/return (+ a b)))
-
-  (m/mlet m.id/tagged-identity-ctx
-    [a (m/return 1)
-     b (m/return 2)]
-    (m/return (+ a b))))
