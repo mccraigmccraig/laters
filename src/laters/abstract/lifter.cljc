@@ -63,6 +63,15 @@
      dissoc
      (first from-ctx-type))))
 
+(extend-protocol p/ILifter
+  nil
+  (-lift [_ to-type from-type utmv]
+    (if (= to-type from-type)
+      utmv
+      (throw (ex-info "no lift" {:to-type to-type
+                                 :from-type from-type
+                                 :utmv utmv})))))
+
 (defn lift
   "lifts an untagged mv from one type to another"
   [lifter to-type from-type utmv]

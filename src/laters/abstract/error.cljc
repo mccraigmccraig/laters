@@ -1,10 +1,6 @@
 (ns laters.abstract.error
   (:require
-   [laters.abstract.error.protocols :as p]
-   [laters.abstract.tagged :as tag]
-   [laters.abstract.tagged.protocols :as tag.p]
-   [laters.abstract.lifter :as lift]
-   [laters.abstract.monad.protocols :as m.p]))
+   [laters.abstract.error.protocols :as p]))
 
 (defmacro always-catch
   "catch an exception in the mv form, ensuring catch always catches"
@@ -52,24 +48,3 @@
 (defn error?
   [v]
   (instance? ErrorMarker v))
-
-
-(defn tagged-reject
-  [m v]
-  (tag/tag m
-           (p/-reject
-            (tag.p/-inner-ctx m)
-            v)))
-
-(defn tagged-catch
-  [m mv f lifter]
-  (let [i-ctx (tag.p/-inner-ctx m)
-        tcmv (p/-catch i-ctx mv f)]
-    (tag/tag
-     m
-     (lift/lift lifter (m.p/-type m) (m.p/-type i-ctx) (tag/untag tcmv)))))
-
-(defn tagged-finally
-  [m mv f]
-  (let [i-ctx (tag.p/-inner-ctx m)]
-    (p/-finally i-ctx mv f)))

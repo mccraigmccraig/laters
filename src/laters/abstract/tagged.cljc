@@ -4,52 +4,53 @@
    [laters.abstract.tagged.protocols :as tag.p]
    [laters.abstract.lifter :as lifter])
   (:import
-   [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]
-   [laters.abstract.lifter.protocols ILifter]))
+   [laters.abstract.tagged.protocols ITagSource ITagged ITaggedCtx]))
 
-(defn ^ITaggedCtx ctx
-  [mv]
-  (tag.p/-tagged-ctx mv))
+(defn get-tag
+  [^ITagSource v]
+  (tag.p/-get-tag v))
 
-(defn ^ITaggedMv tag
-  [^ITaggedCtx t-ctx inner-mv]
-  (tag.p/-tag t-ctx inner-mv))
+(defn ^ITagged tag
+  [^ITaggedCtx t-ctx v]
+  (tag.p/-tag t-ctx v))
 
 (defn untag
-  [^ITaggedMv tmv]
-  (tag.p/-inner-mv tmv))
+  [^ITagged tv]
+  (tag.p/-get-value tv))
 
-(defn tagged-type
-  [^ITaggedCtx ctx]
-  [::Tagged (m.p/-type (tag.p/-inner-ctx ctx))])
+(defrecord Tagged [tag v]
+  tag.p/ITagSource
+  (-get-tag [_] tag)
+  tag.p/ITagged
+  (-get-value [_] v))
 
-;; a tagged plain value
+(defn tagged
+  [tag v]
+  (->Tagged tag v))
 
-(defrecord TaggedPlainMv [^ITaggedCtx ctx mv]
-  tag.p/ITaggedMv
-  (-tagged-ctx [_] ctx)
-  (-inner-mv [_] mv))
+;; a Tagged context, for use as an inner-context with
+;; IdentityTransformer
+;; ErrorTransformer
+;; RWErrorTransformer
+;; PRWTransformer
+;; etc
 
-(defn tagged-plain
-  [ctx mv]
-  (->TaggedPlainMv ctx mv))
+(deftype TaggedCtx [t lifter]
+  tag.p/ITagSource
+  (-get-tag [m] t)
+  tag.p/ITaggedCtx
+  (-tag [m v] (tagged t v))
+  m.p/Monad
+  (-type [m]
+    [::Tagged t])
+  (-bind [m mv f]
+    (let [tmv' (f (untag mv))
+          tmv'-tag (get-tag tmv')]
+      (if (= t tmv'-tag)
+        tmv'
+        (let [mv' (lifter/lift lifter t tmv'-tag (untag tmv'))]
+          (tagged t mv')))))
+  (-return [m v]
+    (tag m v)))
 
-(defn ^ITaggedMv tagged-bind
-  [^ILifter lifter ^ITaggedCtx ctx ^ITaggedMv tmv tmf]
-  (let [mv (untag tmv)
-        tmv' (m.p/-bind (tag.p/-inner-ctx ctx) mv tmf)
-        from-ctx (tag.p/-tagged-ctx tmv')]
-    (if (= ctx from-ctx) ;; short-circuit no-work case
-      tmv'
-      (let [utmv' (untag tmv')
-            utlmv' (lifter/lift lifter (m.p/-type ctx) (m.p/-type from-ctx) utmv')]
-        (tag ctx utlmv')))))
-
-(defn ^ITaggedMv tagged-return
-  [^ITaggedCtx ctx v]
-  (tag
-   ctx
-   (m.p/-return (tag.p/-inner-ctx ctx) v)))
-
-;; TODO - tagged-join??  - can maybe be used for other tagged method impls
-;; such as the catch and finally impls...
+(def tagged-ctx (->TaggedCtx nil nil))

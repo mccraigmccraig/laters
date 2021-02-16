@@ -4,71 +4,63 @@
    [laters.abstract.error.protocols :as err.p]
    [laters.abstract.error :as err]
    [laters.abstract.tagged :as tag]
-   [laters.abstract.tagged.protocols :as tag.p]
-   [laters.abstract.lifter :as lift])
-  (:import
-   [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]))
+   [laters.control.identity :as id]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; simple Err context
+;;; ErrT context
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftype Err []
+(deftype ErrTCtx [inner-ctx]
   m.p/Monad
-  (-type [m]
-    [::Identity])
+  (-type [m])
   (-bind [m mv f]
-    (if (err.p/error? mv)
-      mv
-      (try
-        (f mv)
-        (catch Exception e
-          (err/error-marker e)))))
-  (-join [m mmv]
-    mmv)
+    (m.p/-bind
+     inner-ctx
+     mv
+     (fn [err-v]
+       (if (err/error? err-v)
+         err-v
+         (try
+           (f err-v)
+           (catch Exception e
+             (m.p/-return
+              inner-ctx
+              (err/error-marker e))))))))
   (-return [m v]
-    v)
+    (m.p/-return
+     inner-ctx
+     v))
+  m.p/MonadZero
+  (-mzero [m]
+    (m.p/-return
+     inner-ctx
+     (err/error-marker nil)))
 
   err.p/MonadError
   (-reject [m v]
-    (err/error-marker v))
+    (m.p/-return
+     inner-ctx
+     (err/error-marker v)))
   (-catch [m mv f]
-    (try
-      (f mv)
-      (catch Exception e
-        (err/error-marker e))))
+    (m.p/-bind
+     inner-ctx
+     mv
+     (fn [err-v]
+       (if (err/error? err-v)
+         (try
+           (f err-v)
+           (catch Exception e
+             (m.p/-return
+              inner-ctx
+              (err/error-marker e))))
+         (m.p/-return
+          inner-ctx
+          err-v)))))
   (-finally [m mv f]
-    (try
-      mv
-      (finally (f)))))
+    mv))
 
+(def err-ctx
+  (->ErrTCtx id/identity-ctx))
 
-(def err-ctx (->Err))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; TaggedErr context
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(deftype TaggedErr [lifter]
-  tag.p/ITaggedCtx
-  (-inner-ctx [this] err-ctx)
-  (-tag [this inner-mv]
-    (t/tagged-plain this inner-mv))
-
-  m.p/Monad
-  (-type [m]
-    (t/tagged-type m))
-  (-bind [m tmv tmf]
-    (t/tagged-bind m tmv tmf))
-  (-return [m v]
-    (t/tagged-return m v))
-
-  err.p/MonadError
-  (-reject [m v]
-    (err/tagged-reject m v))
-  (-catch [m mv f]
-    (err/tagged-catch m mv f lifter))
-  (-finally [m mv f]
-    (err/tagged-finally m mv f)))
-
-(def tagged-err-ctx (->TaggedErr nil))
+(def tagged-err-ctx
+  (->ErrTCtx (tag/->TaggedCtx ::Err nil)))

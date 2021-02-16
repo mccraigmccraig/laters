@@ -1,15 +1,14 @@
 (ns laters.abstract.tagged.protocols)
 
-(declare ITaggedCtx)
+(defprotocol ITagSource
+  (-get-tag [_]))
 
 ;; for contexts to wrap their monadic values in
 ;; a marker type - and support generic lifts
-(defprotocol ITaggedMv
-  (^ITaggedCtx -tagged-ctx [_])
-  (-inner-mv [_]))
+(defprotocol ITagged
+  (-get-value [_]))
 
 ;; for a context presenting a tagged interface,
 ;; implemented by wrapping a plain context
 (defprotocol ITaggedCtx
-  (^ITaggedMv -tag [_ inner-mv])
-  (-inner-ctx [_]))
+  (^ITagged -tag [_ v]))
