@@ -1,11 +1,6 @@
 (ns laters.abstract.runnable
   (:require
-   [laters.abstract.runnable.protocols :as runnable.p]
-   [laters.abstract.tagged.protocols :as tagged.p])
-  (:import
-   [laters.abstract.runnable.protocols IRunnable]
-   [laters.abstract.tagged.protocols ITaggedMv ITaggedCtx]
-   [clojure.lang IFn]))
+   [laters.abstract.runnable.protocols :as runnable.p]))
 
 (defn run
   ([m] (run m nil))
@@ -20,16 +15,3 @@
 (defn plain-runnable
   [f]
   (PlainRunnable. f))
-
-(defrecord TaggedRunnable [^ITaggedCtx ctx ^IRunnable f]
-  tagged.p/ITaggedMv
-  (-tagged-ctx [_] ctx)
-  (-inner-mv [_] f)
-
-  runnable.p/IRunnable
-  (-run [_ arg]
-    (runnable.p/-run f arg)))
-
-(defn tagged-runnable
-  [ctx f]
-  (->TaggedRunnable ctx f))
