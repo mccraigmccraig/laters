@@ -1,6 +1,7 @@
 (ns laters.abstract.error
   (:require
-   [laters.abstract.error.protocols :as p]))
+   [laters.abstract.error.protocols :as p]
+   [laters.abstract.context.protocols :as ctx.p]))
 
 (defmacro always-catch
   "catch an exception in the mv form, ensuring catch always catches"
@@ -37,14 +38,3 @@
    `(always-finally ~m ~mv ~f))
   ([mv f]
    `(always-finally ~'this-monad## ~mv ~f)))
-
-;; use ErrorMarker as a marker container for errors,
-;; in the case that the type has no inbuilt error state
-(defrecord ErrorMarker [e])
-
-(defn error-marker [e]
-  (->ErrorMarker e))
-
-(defn error?
-  [v]
-  (instance? ErrorMarker v))
