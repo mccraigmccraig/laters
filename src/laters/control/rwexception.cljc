@@ -8,11 +8,22 @@
    [laters.control.reader.protocols :as m.r.p]
    [laters.control.writer.protocols :as m.w.p]
    [laters.control.maybe :as maybe]
-   [laters.control.exception :as exception]
    [laters.control.identity :as id]
    [laters.abstract.tagged :as tagged]
    [laters.abstract.runnable.protocols :as runnable.p]
    [laters.monoid :as monoid]))
+
+(defrecord Failure [e]
+  ctx.p/Extract
+  (-extract [_] e))
+
+(defn failure
+  [e]
+  (->Failure e))
+
+(defn failure?
+  [v]
+  (instance? Failure v))
 
 (defrecord RWExceptionVal [ctx f]
   ctx.p/Contextual
@@ -45,7 +56,7 @@
    (merge
     {:monad.writer/output nil}
     output
-    { :monad/val (exception/failure e)})))
+    {:monad/val (failure e)})))
 
 (defn error-rwexception-val
   ([ctx e] (error-rwexception-val ctx nil e))
@@ -55,12 +66,11 @@
     (fn [_]
       (error-rw-exception-body output e)))))
 
-(deftype RWExceptionTCtx [output-ctx inner-ctx]
-  ctx.p/Context
-  (-get-type [m] (ctx.p/-get-type inner-ctx))
-  m.p/Monad
-  (-bind [m inner-mv inner-mf]
-    (m.p/-bind
+(defn rw-exception-t-bind
+  "a short-circuiting bind - whether success or failure
+   values are bound depends on the short-circuit? predicate"
+  [output-ctx inner-ctx short-circuit? m inner-mv inner-mf]
+  (m.p/-bind
      inner-ctx
      inner-mv
 
@@ -78,11 +88,11 @@
                     v :monad/val
                     :as r} (runnable.p/-run outer-mv {:monad.reader/env env})]
 
-               (if (exception/failure? v)
+               (if (short-circuit? v)
 
                  r
 
-                 (let [inner-mv' (inner-mf v)]
+                 (let [inner-mv' (inner-mf (ctx.p/-extract v))]
 
                    (m.p/-bind
                     inner-ctx
@@ -111,15 +121,35 @@
                            e))))))))
              (catch Exception e
                (error-rw-exception-body e)))))))))
-  (-return [m v]
-    (m.p/-return
+
+(deftype RWExceptionTCtx [output-ctx inner-ctx]
+  ctx.p/Context
+  (-get-type [m] (ctx.p/-get-type inner-ctx))
+  m.p/Monad
+  (-bind [m inner-mv inner-mf]
+    (rw-exception-t-bind
+     output-ctx
      inner-ctx
-     (plain-rwexception-val m v)))
+     failure?
+     m
+     inner-mv
+     inner-mf))
+
+  (-return [m v]
+    (m.p/-return inner-ctx (plain-rwexception-val m v)))
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx ( v)))
-  (-catch [m mv f])
+    (m.p/-return inner-ctx (error-rwexception-val v)))
+  (-catch [m inner-mv inner-mf]
+    ;; catch is just bind for failure
+    (rw-exception-t-bind
+     output-ctx
+     inner-ctx
+     (complement failure?)
+     m
+     inner-mv
+     inner-mf))
   (-finally [m mv f])
 
   m.r.p/MonadReader

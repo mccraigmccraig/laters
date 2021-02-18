@@ -12,6 +12,13 @@
   (-extract [_]
     "extract a value from a context"))
 
+;; extract arbitrary values to themselves
+(extend-protocol Extract
+  nil
+  (-extract [self] self)
+  Object
+  (-extract [self] self))
+
 (defprotocol Semigroup
   "A structure with an associative binary operation."
   (-mappend [s sv sv'] "An associative addition operation."))
