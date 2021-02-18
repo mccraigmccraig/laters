@@ -7,15 +7,45 @@
     IPersistentMap
     IPersistentVector]))
 
+(defn mappend
+  ([sv sv']
+   (ctx.p/-mappend nil sv sv'))
+  ([ctx sv sv']
+   (ctx.p/-mappend ctx sv sv'))
+  ([ctx sv sv' & others]
+   (reduce
+    (fn [sv sv']
+      (ctx.p/-mappend ctx sv sv'))
+    (ctx.p/-mappend ctx sv sv')
+    others)))
+
+(defn mempty
+  [ctx]
+  (ctx.p/-mempty ctx))
+
 (deftype MapMonoidCtx []
   ctx.p/Monoid
   (-mempty [_] {})
   ctx.p/Semigroup
-  (-mappend [_ sv sv']
-    (let [[k v :as kv] sv']
-      (if (some? kv)
-        (update (or sv {}) k #(ctx.p/-mappend nil (or % []) v))
-        sv))))
+  (-mappend [ctx sv sv']
+    (cond
+      (sequential? sv')
+      (let [[k v :as kv] sv']
+        (if (some? kv)
+          (update (or sv {}) k #(ctx.p/-mappend nil (or % []) v))
+          sv))
+
+      (map? sv')
+      (merge-with
+       #(apply mappend nil (or %1 []) %2)
+       sv
+       sv')
+
+      nil?
+      sv
+
+      :else
+      (throw (ex-info "can't mappend" {:ctx ctx :sv sv :sv' sv'})))))
 
 (def map-monoid-ctx (->MapMonoidCtx))
 
@@ -52,19 +82,3 @@
      (ctx.p/-get-context sv)
      sv
      sv')))
-
-(defn mappend
-  ([sv sv']
-   (ctx.p/-mappend nil sv sv'))
-  ([ctx sv sv']
-   (ctx.p/-mappend ctx sv sv'))
-  ([ctx sv sv' & others]
-   (reduce
-    (fn [sv sv']
-      (ctx.p/-mappend ctx sv sv'))
-    (ctx.p/-mappend ctx sv sv')
-    others)))
-
-(defn mempty
-  [ctx]
-  (ctx.p/-mempty ctx))

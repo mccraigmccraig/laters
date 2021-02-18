@@ -170,9 +170,33 @@
         (runnable.p/-run mv {:monad.reader/env (f env)})))))
 
   m.w.p/MonadWriter
-  (-tell [m v])
-  (-listen [m mv])
-  (-pass [m mv]))
+  (-tell [m v]
+    (m.p/-return
+     inner-ctx
+     (rwexception-val
+      m
+      (fn [{env :monad.reader/env}]
+        {:monad.writer/output (monoid/mappend output-ctx nil v)}))))
+  (-listen [m mv]
+    (m.p/-return
+     inner-ctx
+     (rwexception-val
+      m
+      (fn [{env :monad.reader/env}]
+        (let [{w :monad.writer/output
+               :as lv} (runnable.p/-run mv {:monad.reader/env env})]
+          {:monad.writer/output w
+           :monad/val lv})))))
+  (-pass [m mv]
+    (m.p/-return
+     inner-ctx
+     (rwexception-val
+      m
+      (fn [{env :monad.reader/env}]
+        (let [{w :monad.writer/output
+               [val f] :monad/val} (runnable.p/-run mv {:monad.reader/env env})]
+          {:monad.writer/output (f w)
+           :monad/val val}))))))
 
 (def rwexception-ctx
   (->RWExceptionTCtx
