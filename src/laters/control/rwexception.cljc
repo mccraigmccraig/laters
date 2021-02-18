@@ -75,7 +75,7 @@
      inner-mv
 
      (fn outer-mf [outer-mv]
-       (assert (rwexception-val? outer-mv))
+       (assert (rwexception-val? outer-mv) (type outer-mv))
 
        (m.p/-return
         inner-ctx
@@ -210,23 +210,31 @@
 
 (comment
 
- (r/run
-   (m/mlet rwx/rwexception-ctx
-     (e/catch
-         (m/mlet rwx/rwexception-ctx
-           [a (m/return 10)
-            b (reader/local inc (reader/ask))
-            _ (writer/tell [:foo 10])]
-           (throw (ex-info "boo" {}))
-           (m/return (+ a b)))
-         (fn [e] (m/return (.getMessage e)))))
-   {:monad.reader/env 100})
+  (defn stuff
+    [base]
+    (m/mlet rwx/rwexception-ctx
+      [_ (writer/tell [:base base])
 
- {:monad.writer/output nil,
-  :monad/val "boo"}
+       {offs :config/offset} (reader/ask)
+       _ (writer/tell [:config/offset offs])
 
+       tot (m/return (+ base offs))
+       _ (writer/tell [:total tot])]
 
+      (throw (ex-info "boo" {}))
 
+      (m/return tot)))
+
+  (r/run
+    (m/mlet rwx/rwexception-ctx
+      (e/catch
+          (stuff 100)
+          (fn [e] (m/return (.getMessage e)))))
+
+    {:monad.reader/env {:config/offset 100}})
+
+  {:monad.writer/output {:some/effect [10], :other/effect [:foo]},
+   :monad/val "boo"}
 
 
 
