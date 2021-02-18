@@ -11,8 +11,6 @@
   ctx.p/Context
   (-get-type [m] t)
   m.p/Monad
-  (-type [m]
-    [::Identity])
   (-bind [m mv f]
     (f mv))
   (-join [m mmv]

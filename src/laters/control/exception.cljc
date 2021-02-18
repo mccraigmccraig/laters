@@ -49,7 +49,6 @@
   ctx.p/Context
   (-get-type [m] (ctx.p/-get-type inner-ctx))
   m.p/Monad
-  (-type [m])
   (-bind [m mv f]
     (m.p/-bind
      inner-ctx
