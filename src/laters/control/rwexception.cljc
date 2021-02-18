@@ -142,7 +142,7 @@
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx (error-rwexception-val v)))
+    (m.p/-return inner-ctx (error-rwexception-val m v)))
   (-catch [m inner-mv inner-mf]
     ;; catch is like bind for failure
     (rw-exception-t-bind-2
@@ -156,17 +156,24 @@
          (m.p/-return m right)))))
   (-finally [m inner-mv inner-mf]
     ;; and finally is like bind for whatever
+
+    ;; this is awkward ... maybe should ditch catch/finally
+    ;; in favour of handle
     (rw-exception-t-bind-2
      output-ctx
      inner-ctx
      m
      inner-mv
      (fn [left right]
-       (inner-mf) ;; discard result of finally fn
-
-       (if (some? left)
-         (err.p/-reject m left)
-         (m.p/-return m right)))))
+       (rw-exception-t-bind-2
+        output-ctx
+        inner-ctx
+        m
+        (inner-mf)
+        (fn [_ _] ;; discard result of finally fn
+          (if (some? left)
+            (err.p/-reject m left)
+            (m.p/-return m right)))))))
 
   m.r.p/MonadReader
   (-ask [m]
@@ -241,10 +248,27 @@
 
       (m/return tot)))
 
+  ;; writer log is preserved through errors,
+  ;; and you can log in catch and finally
+
   (r/run
     (m/mlet rwx/rwexception-ctx
-      (e/catch (stuff 100)
-          (fn [e] (m/return (.getMessage e)))))
+      (e/catch
+          (e/finally
+            (stuff 100)
+            (fn [] (prn "finally") (writer/tell [:ex :finally])))
+          (fn [e]
+            (m/mlet rwx/rwexception-ctx
+              [_ (writer/tell [:ex :caught])]
+              (m/return (.getMessage e))))))
+    {:monad.reader/env {:config/offset 100}})
+
+
+  (r/run
+    (m/mlet rwx/rwexception-ctx
+      (e/finally
+        (stuff 100)
+        (fn [] (prn "finally") (writer/tell [:ex :finally]))))
     {:monad.reader/env {:config/offset 100}})
 
   =>
