@@ -70,57 +70,59 @@
   "pass both failure/left and right success/branches
    to the inner-2-mf... permits bind, catch, finally, handle
    behaviours to all use this same fn"
-  [output-ctx inner-ctx m inner-mv inner-2-mf]
-  (m.p/-bind
-     inner-ctx
-     inner-mv
+  ([output-ctx inner-ctx m inner-mv inner-2-mf]
+   (rw-exception-t-bind-2 output-ctx inner-ctx m inner-mv false inner-2-mf))
+  ([output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
+   (m.p/-bind
+    inner-ctx
+    inner-mv
 
-     (fn outer-mf [outer-mv]
-       (assert (rwexception-val? outer-mv) (type outer-mv))
+    (fn outer-mf [outer-mv]
+      (assert (rwexception-val? outer-mv) (type outer-mv))
 
-       (m.p/-return
-        inner-ctx
-        (rwexception-val
-         m
-         (fn [{env :monad.reader/env}]
+      (m.p/-return
+       inner-ctx
+       (rwexception-val
+        m
+        (fn [{env :monad.reader/env}]
 
-           (try
-             (let [{w :monad.writer/output
-                    v :monad/val
-                    :as r} (runnable.p/-run outer-mv {:monad.reader/env env})
+          (try
+            (let [{w :monad.writer/output
+                   v :monad/val
+                   :as r} (runnable.p/-run outer-mv {:monad.reader/env env})
 
-                   [left right] (if (failure? v)
-                                  [(ctx.p/-extract v) nil]
-                                  [nil (ctx.p/-extract v)])]
-               (try
-                   (let [inner-mv' (inner-2-mf left right)]
+                  [left right] (if (failure? v)
+                                 [(ctx.p/-extract v) nil]
+                                 [nil (ctx.p/-extract v)])]
+              (try
+                (let [inner-mv' (inner-2-mf left right)]
 
-                     (m.p/-bind
-                      inner-ctx
-                      inner-mv'
+                  (m.p/-bind
+                   inner-ctx
+                   inner-mv'
 
-                      (fn outer-mf' [outer-mv']
-                        (assert (rwexception-val? outer-mv'))
+                   (fn outer-mf' [outer-mv']
+                     (assert (rwexception-val? outer-mv'))
 
-                        (let [{w' :monad.writer/output
-                               v' :monad/val} (runnable.p/-run
-                                               outer-mv'
-                                               {:monad.reader/env env})]
-                          {:monad.writer/output (monoid/mappend
-                                                 output-ctx
-                                                 nil
-                                                 w
-                                                 w')
-                           :monad/val v'}))))
-                   (catch Exception e
-                     (error-rw-exception-body
-                      {:monad.writer/output (monoid/mappend
-                                             output-ctx
-                                             nil
-                                             w)}
-                      e))))
-             (catch Exception e
-               (error-rw-exception-body e)))))))))
+                     (let [{w' :monad.writer/output
+                            v' :monad/val} (runnable.p/-run
+                                            outer-mv'
+                                            {:monad.reader/env env})]
+                       {:monad.writer/output (monoid/mappend
+                                              output-ctx
+                                              nil
+                                              w
+                                              w')
+                        :monad/val (if discard-val? v v')}))))
+                (catch Exception e
+                  (error-rw-exception-body
+                   {:monad.writer/output (monoid/mappend
+                                          output-ctx
+                                          nil
+                                          w)}
+                   e))))
+            (catch Exception e
+              (error-rw-exception-body e))))))))))
 
 (deftype RWExceptionTCtx [output-ctx inner-ctx]
   ctx.p/Context
@@ -159,21 +161,16 @@
 
     ;; this is awkward ... maybe should ditch catch/finally
     ;; in favour of handle
+    ;; although handle doesn't solve the problem of
+    ;; discarding the output
     (rw-exception-t-bind-2
      output-ctx
      inner-ctx
      m
      inner-mv
-     (fn [left right]
-       (rw-exception-t-bind-2
-        output-ctx
-        inner-ctx
-        m
-        (inner-mf)
-        (fn [_ _] ;; discard result of finally fn
-          (if (some? left)
-            (err.p/-reject m left)
-            (m.p/-return m right)))))))
+     true  ;; discard the val
+     (fn [_left _right]
+       (inner-mf))))
 
   m.r.p/MonadReader
   (-ask [m]
@@ -273,9 +270,11 @@
 
   =>
 
-  {:monad.writer/output {:base [100],
-                         :config/offset [100],
-                         :total [200]},
+  {:monad.writer/output
+   {:base [100],
+    :config/offset [100],
+    :total [200],
+    :ex [:finally :caught]},
    :monad/val "boo"}
 
    )
