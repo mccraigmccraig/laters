@@ -165,17 +165,12 @@
          (m.p/-return m right)))))
   (-finally [m inner-mv inner-mf]
     ;; and finally is like bind for whatever
-
-    ;; this is awkward ... maybe should ditch catch/finally
-    ;; in favour of handle
-    ;; although handle doesn't solve the problem of
-    ;; discarding the output
     (rw-exception-t-bind-2
      output-ctx
      inner-ctx
      m
      inner-mv
-     true  ;; discard the val
+     true  ;; preserve the previous val
      (fn [_left _right]
        (inner-mf))))
 
@@ -274,13 +269,28 @@
              (m/return right)))))))
 
   ;; writer log is preserved through errors,
-  ;; and you can log in catch and finally
+  ;; and you can log in handle, catch and finally
 
   (r/run (handle-stuff 100)
     {:monad.reader/env {:config/offset 100}})
 
+  =>
+
+  {:monad.writer/output {:base [100],
+                         :config/offset [100],
+                         :total [200],
+                         :ex [:none]},
+   :monad/val 200}
+
+  ;; here's how an error gets caught/handled
+
   (r/run (handle-stuff 100)
     {:monad.reader/env {:config/offset :foo}})
+
+  {:monad.writer/output {:base [100],
+                         :config/offset [:foo],
+                         :ex [:handled]},
+   :monad/val "class clojure.lang.Keyword cannot be cast to class java.lang.Number (clojure.lang.Keyword is in unnamed module of loader 'app'; java.lang.Number is in module java.base of loader 'bootstrap')"}
 
 
   (r/run
