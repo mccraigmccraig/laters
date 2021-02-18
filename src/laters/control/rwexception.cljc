@@ -25,6 +25,7 @@
   [v]
   (instance? Failure v))
 
+;; values are: <env> -> <writer,success|failure>
 (defrecord RWExceptionVal [ctx f]
   ctx.p/Contextual
   (-get-context [_] ctx)
