@@ -255,18 +255,18 @@
 
   (defn handle-stuff
     [& args]
-    (m/mlet rwx/rwexception-ctx
-      (e/handle
-       (apply stuff args)
-       (fn [left right]
-         (if (some? left)
-           (m/mlet rwx/rwexception-ctx
-             [_ (writer/tell [:ex :handled])]
-             (m/return (ex-message left)))
+    (m/with-context rwx/rwexception-ctx
+      (-> (apply stuff args)
+          (e/handle
+           (fn [left right]
+             (if (some? left)
+               (m/mlet
+                 [_ (writer/tell [:ex :handled])]
+                 (m/return (ex-message left)))
 
-           (m/mlet rwx/rwexception-ctx
-             [_ (writer/tell [:ex :none])]
-             (m/return right)))))))
+               (m/mlet
+                 [_ (writer/tell [:ex :none])]
+                 (m/return right))))))))
 
   ;; writer log is preserved through errors,
   ;; and you can log in handle, catch and finally
