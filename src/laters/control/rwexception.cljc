@@ -153,8 +153,21 @@
   (-finally [m mv f])
 
   m.r.p/MonadReader
-  (-ask [m])
-  (-local [m f mv])
+  (-ask [m]
+    (m.p/-return
+     inner-ctx
+     (rwexception-val
+      m
+      (fn [{env :monad.reader/env}]
+        {:monad.writer/output nil
+         :monad/val env}))))
+  (-local [m f mv]
+    (m.p/-return
+     inner-ctx
+     (rwexception-val
+      m
+      (fn [{env :monad.reader/env}]
+        (runnable.p/-run mv {:monad.reader/env (f env)})))))
 
   m.w.p/MonadWriter
   (-tell [m v])
