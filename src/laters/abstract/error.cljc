@@ -11,6 +11,14 @@
      (catch Exception x#
        (p/-catch ~m (p/-reject ~m x#) ~f))))
 
+(defmacro always-handle
+  "catch an exception in the mv form, ensuring handle always handles"
+  [m mv f2]
+  `(try
+     (p/-handle ~m ~mv ~f2)
+     (catch Exception x#
+       (p/-handle ~m (p/-reject ~m x#) ~f2))))
+
 (defmacro always-finally
   "catch (and rethrow) an exception in the mv form,
    ensuring the finally fn always gets called"
@@ -26,6 +34,12 @@
    `(p/-reject ~m ~v))
   ([v]
    `(p/-reject ~'this-monad## ~v)))
+
+(defmacro handle
+  ([m mv f2]
+   `(always-handle ~m ~mv ~f2))
+  ([mv f2]
+   `(always-handle ~'this-monad## ~mv ~f2)))
 
 (defmacro catch
   ([m mv f]
