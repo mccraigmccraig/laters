@@ -1,12 +1,17 @@
 (ns laters.abstract.monad
   (:require
-   [laters.abstract.monad.protocols :as p]))
+   [laters.abstract.monad.protocols :as p]
+   [laters.abstract.context.protocols :as ctx.p]))
 
-(defmacro bind
-  ([m mv f]
-   `(p/-bind ~m ~mv ~f))
+(defn bind
   ([mv f]
-   `(p/-bind ~'this-monad## ~mv ~f)))
+   (p/-bind (ctx.p/-get-context mv) mv f))
+  ([m mv f]
+   (p/-bind (or m (ctx.p/-get-context mv)) mv f)))
+
+(defn return'
+  [m v]
+  (p/-return m v))
 
 (defmacro return
   ([m v]
@@ -21,29 +26,39 @@
     (p/-mzero m)))
 
 #?(:clj
-   (defmacro mlet
+   (defmacro with-context
+     [ctx & body]
+     `(let [~'this-monad## ~ctx]
+        ~@body)))
+
+#?(:clj
+   (defn mlet*
      "mostly taken from funcool/cats.core"
-     [m bindings-or-first-body & rest]
-     (let [[bindings body] (if (vector? bindings-or-first-body)
-                             [bindings-or-first-body rest]
-                             [nil
-                              (concat
-                               (list bindings-or-first-body)
-                               rest)])]
-       (when (and (vector? bindings)
-                  (not (even? (count bindings))))
-         (throw (IllegalArgumentException. "bindings must have an even number of elements.")))
-       (let [forms (->> (reverse (partition 2 bindings))
-                        (reduce (fn [acc [l r]]
-                                  (case l
-                                    :let  `(let ~r ~acc)
-                                    :when `(bind ~m
-                                                 (guard ~m ~r)
-                                                 (fn [~(gensym)] ~acc))
-                                    `(bind ~m ~r (fn [~l] ~acc))))
-                                `(do ~@body)))]
-         `(let [~'this-monad## ~m]
-            ~forms)))))
+     [m bindings & body]
+     (when (and (vector? bindings)
+                (not (even? (count bindings))))
+       (throw (IllegalArgumentException. "bindings must have an even number of elements.")))
+     (let [forms (->> (reverse (partition 2 bindings))
+                      (reduce (fn [acc [l r]]
+                                (case l
+                                  :let  `(let ~r ~acc)
+                                  :when `(bind ~m
+                                               (guard ~m ~r)
+                                               (fn [~(gensym)] ~acc))
+                                  `(bind ~m ~r (fn [~l] ~acc))))
+                              `(do ~@body)))]
+       (if (some? m)
+         `(with-context ~m ~forms)
+         `~forms))))
+
+#?(:clj
+   (defmacro mlet
+     [& args]
+     (let [[arg1 arg2 & rest] args]
+       (cond
+         (vector? arg1) (apply mlet* nil arg1 arg2 rest)
+         (vector? arg2) (apply mlet* arg1 arg2 rest)
+         :else (throw (IllegalArgumentException. "1st or second arg must be binding vector"))))))
 
 #?(:clj
    (defmacro deflets
