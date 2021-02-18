@@ -92,16 +92,16 @@
 
                  r
 
-                 (let [inner-mv' (inner-mf (ctx.p/-extract v))]
+                 (try
+                   (let [inner-mv' (inner-mf (ctx.p/-extract v))]
 
-                   (m.p/-bind
-                    inner-ctx
-                    inner-mv'
+                     (m.p/-bind
+                      inner-ctx
+                      inner-mv'
 
-                    (fn outer-mf' [outer-mv']
-                      (assert (rwexception-val? outer-mv'))
+                      (fn outer-mf' [outer-mv']
+                        (assert (rwexception-val? outer-mv'))
 
-                      (try
                         (let [{w' :monad.writer/output
                                v' :monad/val} (runnable.p/-run
                                                outer-mv'
@@ -111,14 +111,14 @@
                                                  nil
                                                  w
                                                  w')
-                           :monad/val v'})
-                        (catch Exception e
-                          (error-rw-exception-body
-                           {:monad.writer/output (monoid/mappend
-                                                  output-ctx
-                                                  nil
-                                                  w)}
-                           e))))))))
+                           :monad/val v'}))))
+                   (catch Exception e
+                     (error-rw-exception-body
+                      {:monad.writer/output (monoid/mappend
+                                             output-ctx
+                                             nil
+                                             w)}
+                      e)))))
              (catch Exception e
                (error-rw-exception-body e)))))))))
 
@@ -207,3 +207,27 @@
   (->RWExceptionTCtx
    monoid/map-monoid-ctx
    (tagged/->TaggedCtx [::RWExceptionT ::monoid/map ::tagged/Tagged] nil)))
+
+(comment
+
+ (r/run
+   (m/mlet rwx/rwexception-ctx
+     (e/catch
+         (m/mlet rwx/rwexception-ctx
+           [a (m/return 10)
+            b (reader/local inc (reader/ask))
+            _ (writer/tell [:foo 10])]
+           (throw (ex-info "boo" {}))
+           (m/return (+ a b)))
+         (fn [e] (m/return (.getMessage e)))))
+   {:monad.reader/env 100})
+
+ {:monad.writer/output nil,
+  :monad/val "boo"}
+
+
+
+
+
+
+ )
