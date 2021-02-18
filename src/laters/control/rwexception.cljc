@@ -68,8 +68,8 @@
 
 (defn rw-exception-t-bind-2
   "pass both failure/left and right success/branches
-   to the inner-2-mf... permits bind, catch, handle, finally
-   behavious to all use this fn"
+   to the inner-2-mf... permits bind, catch, finally, handle
+   behaviours to all use this same fn"
   [output-ctx inner-ctx m inner-mv inner-2-mf]
   (m.p/-bind
      inner-ctx
