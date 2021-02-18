@@ -145,6 +145,13 @@
   err.p/MonadError
   (-reject [m v]
     (m.p/-return inner-ctx (error-rwexception-val m v)))
+  (-handle [m inner-mv inner-mf2]
+    (rw-exception-t-bind-2
+     output-ctx
+     inner-ctx
+     m
+     inner-mv
+     inner-mf2))
   (-catch [m inner-mv inner-mf]
     ;; catch is like bind for failure
     (rw-exception-t-bind-2
@@ -229,6 +236,12 @@
    (tagged/->TaggedCtx [::RWExceptionT ::monoid/map ::tagged/Tagged] nil)))
 
 (comment
+  (require '[laters.control.rwexception :as rwx])
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.reader :as reader])
+  (require '[laters.control.writer :as writer])
+  (require '[laters.abstract.error :as e])
+  (require '[laters.abstract.runnable :as r])
 
   (defn stuff
     [base]
@@ -241,24 +254,33 @@
        tot (m/return (+ base offs))
        _ (writer/tell [:total tot])]
 
-      (throw (ex-info "boo" {}))
+      ;; (throw (ex-info "boo" {}))
 
       (m/return tot)))
+
+  (defn handle-stuff
+    [& args]
+    (m/mlet rwx/rwexception-ctx
+      (e/handle
+       (apply stuff args)
+       (fn [left right]
+         (if (some? left)
+           (m/mlet rwx/rwexception-ctx
+             [_ (writer/tell [:ex :handled])]
+             (m/return (ex-message left)))
+
+           (m/mlet rwx/rwexception-ctx
+             [_ (writer/tell [:ex :none])]
+             (m/return right)))))))
 
   ;; writer log is preserved through errors,
   ;; and you can log in catch and finally
 
-  (r/run
-    (m/mlet rwx/rwexception-ctx
-      (e/catch
-          (e/finally
-            (stuff 100)
-            (fn [] (prn "finally") (writer/tell [:ex :finally])))
-          (fn [e]
-            (m/mlet rwx/rwexception-ctx
-              [_ (writer/tell [:ex :caught])]
-              (m/return (.getMessage e))))))
+  (r/run (handle-stuff 100)
     {:monad.reader/env {:config/offset 100}})
+
+  (r/run (handle-stuff 100)
+    {:monad.reader/env {:config/offset :foo}})
 
 
   (r/run
