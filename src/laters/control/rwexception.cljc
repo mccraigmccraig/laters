@@ -87,10 +87,12 @@
         m
         (fn [{env :monad.reader/env}]
 
+          ;; TODO is this try/catch logic correct ? not sure ... failures in
+          ;; the first -run don't get fed through the inner-2-mf, failures
+          ;; in the second -run get turned straight into a Failure
           (try
             (let [{w :monad.writer/output
-                   v :monad/val
-                   :as r} (runnable.p/-run outer-mv {:monad.reader/env env})
+                   v :monad/val} (runnable.p/-run outer-mv {:monad.reader/env env})
 
                   [left right] (if (failure? v)
                                  [(ctx.p/-extract v) nil]

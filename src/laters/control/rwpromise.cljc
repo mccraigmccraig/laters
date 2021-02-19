@@ -11,7 +11,8 @@
    [laters.control.identity :as id]
    [laters.abstract.tagged :as tagged]
    [laters.abstract.runnable.protocols :as runnable.p]
-   [laters.monoid :as monoid]))
+   [laters.monoid :as monoid]
+   [promesa.core :as p]))
 
 ;; values are: <env> -> Promise<writer,val>
 (defrecord RWPromiseVal [ctx f]
@@ -31,15 +32,98 @@
   [v]
   (instance? RWPromiseVal v))
 
+(defn plain-rwpromise-val
+  [ctx v]
+  (rwpromise-val
+   ctx
+   (fn [_]
+     (p/resolved
+      {:monad.writer/output nil
+       :monad/val v}))))
+
+(defn rw-promise-t-bind-2
+  ([output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
+   (m.p/-bind
+    inner-ctx
+    inner-mv
+
+    (fn outer-mf [outer-mv]
+      (assert (rwpromise-val? outer-mv))
+
+      (m.p/-return
+       inner-ctx
+       (rwpromise-val
+        m
+        (fn [{env :monad.reader/env}]
+
+          (p/handle
+           (runnable.p/-run outer-mv {:monad.reader/env env})
+           (fn [{w :monad.writer/output
+                v :monad/val
+                :as right}
+               left]
+             (let [inner-mv' (inner-2-mf left v)]
+
+               (m.p/-bind
+                inner-ctx
+                inner-mv'
+
+                (fn outer-mf' [outer-mv']
+                  (assert (rwpromise-val? outer-mv'))
+
+                  (p/handle
+                   (runnable.p/-run outer-mv' {:monad.reader/env env})
+                   (fn [{w' :monad.writer/output
+                        v' :monad/val
+                        :as right}
+                       left]
+
+                     (if (some? left)
+
+                       ;;TODO no so simple ... left val is probably an exception ... and on jvm
+                       ;; needs to be an exception, so need to thread all the
+                       ;; effects onto an atom in an ex-info
+                       {:monad.writer/output (monoid/mappend
+                                              output-ctx
+                                              nil w)
+                        :monad/val nil}
+
+
+                       {:monad.writer/output (monoid/mappend
+                                              output-ctx
+                                              nil
+                                              w
+                                              w')
+                        :monad/val (if discard-val? v v')})
+
+
+
+                     ))
+                  ))
+
+
+               ))))))))))
+
 (deftype RWPromiseTCtx [output-ctx inner-ctx]
   ctx.p/Context
   (-get-type [m] (ctx.p/-get-type inner-ctx))
   m.p/Monad
   (-bind [m inner-mv inner-mf]
+    (rw-promise-t-bind-2
+     output-ctx
+     inner-ctx
+     m
+     inner-mv
+     false
+     (fn [left right]
+       (prn left right)
+       (if (some? left)
+         (err.p/-reject m left)
+         (inner-mf right))))
     )
 
   (-return [m v]
-    )
+    (m.p/-return inner-ctx (plain-rwpromise-val m v)))
 
   err.p/MonadError
   (-reject [m v]
@@ -74,3 +158,24 @@
   (->RWPromiseTCtx
    monoid/map-monoid-ctx
    (tagged/->TaggedCtx [::RWPromiseT ::monoid.map ::tagged/Tagged] nil)))
+
+
+(comment
+  (require '[laters.control.rwpromise :as rwp])
+  (require '[laters.abstract.monad :as m])
+  (require '[laters.control.reader :as reader])
+  (require '[laters.control.writer :as writer])
+  (require '[laters.abstract.error :as e])
+  (require '[laters.abstract.runnable :as r])
+
+
+  (def mv2 (m/bind
+            rwp/rwpromise-ctx
+            (m/return rwp/rwpromise-ctx 10)
+            (fn [a] (m/return
+                    rwp/rwpromise-ctx
+                    (inc a)))))
+
+  @(r/run mv2 {:monad.reader/env 10})
+
+  )
