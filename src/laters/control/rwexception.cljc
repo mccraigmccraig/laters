@@ -92,15 +92,31 @@
           ;; in the second -run get turned straight into a Failure
           (try
             (let [{w :monad.writer/output
-                   v :monad/val} (runnable.p/-run outer-mv {:monad.reader/env env})
+                   v :monad/val} (try
+                                   (runnable.p/-run
+                                    outer-mv
+                                    {:monad.reader/env env})
+                                   (catch Exception e
+                                     ;; catch and thread errors forward
+                                     (error-rw-exception-body e)))
 
                   [left right] (if (failure? v)
                                  [(ctx.p/-extract v) nil]
-                                 [nil (ctx.p/-extract v)])]
-              (try
-                (let [inner-mv' (inner-2-mf left right)]
+                                 [nil (ctx.p/-extract v)])
 
-                  (m.p/-bind
+                  inner-mv' (try
+                              (inner-2-mf left right)
+                              (catch Exception e
+                                ;; catch and thread errors forward
+                                (error-rwexception-val
+                                 inner-ctx
+                                 {:monad.writer/output (monoid/mappend
+                                                        output-ctx
+                                                        nil
+                                                        w)}
+                                 e)))]
+
+              (m.p/-bind
                    inner-ctx
                    inner-mv'
 
@@ -108,23 +124,26 @@
                      (assert (rwexception-val? outer-mv'))
 
                      (let [{w' :monad.writer/output
-                            v' :monad/val} (runnable.p/-run
-                                            outer-mv'
-                                            {:monad.reader/env env})]
+                            v' :monad/val} (try
+                                             (runnable.p/-run
+                                              outer-mv'
+                                              {:monad.reader/env env})
+                                             (catch Exception e
+                                               ;; catch and thread errors forward
+                                               (error-rw-exception-body
+                                                {:monad.writer/output (monoid/mappend
+                                                                       output-ctx
+                                                                       nil
+                                                                       w)}
+                                                e)))]
                        {:monad.writer/output (monoid/mappend
                                               output-ctx
                                               nil
                                               w
                                               w')
                         :monad/val (if discard-val? v v')}))))
-                (catch Exception e
-                  (error-rw-exception-body
-                   {:monad.writer/output (monoid/mappend
-                                          output-ctx
-                                          nil
-                                          w)}
-                   e))))
             (catch Exception e
+              ;; final fallback
               (error-rw-exception-body e))))))))))
 
 (deftype RWExceptionTCtx [output-ctx inner-ctx]

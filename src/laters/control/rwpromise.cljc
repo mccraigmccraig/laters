@@ -4,10 +4,8 @@
    [laters.abstract.context.protocols :as ctx.p]
    [laters.abstract.monad :as m]
    [laters.abstract.error.protocols :as err.p]
-   [laters.abstract.error :as error]
    [laters.control.reader.protocols :as m.r.p]
    [laters.control.writer.protocols :as m.w.p]
-   [laters.control.maybe :as maybe]
    [laters.control.identity :as id]
    [laters.abstract.tagged :as tagged]
    [laters.abstract.runnable.protocols :as runnable.p]
@@ -40,6 +38,13 @@
      (p/resolved
       {:monad.writer/output nil
        :monad/val v}))))
+
+(defn error-rwpromise-val
+  [ctx e]
+  (rwpromise-val
+   ctx
+   (fn [_]
+     (p/rejected e))))
 
 (defn rw-promise-t-bind-2
   ([output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
@@ -127,27 +132,81 @@
 
   err.p/MonadError
   (-reject [m v]
-    )
+    (m.p/-return inner-ctx (error-rwpromise-val m v)))
   (-handle [m inner-mv inner-mf2]
-    )
+    (rw-promise-t-bind-2
+     output-ctx
+     inner-ctx
+     m
+     inner-mv
+     false
+     inner-mf2))
   (-catch [m inner-mv inner-mf]
-    )
+    (rw-promise-t-bind-2
+     output-ctx
+     inner-ctx
+     m
+     inner-mv
+     false
+     (fn [left right]
+       (if (some? left)
+         (inner-mf left)
+         (m.p/-return m right)))))
   (-finally [m inner-mv inner-mf]
-    )
+    (rw-promise-t-bind-2
+     output-ctx
+     inner-ctx
+     m
+     inner-mv
+     true
+     (fn [_left _right]
+       (inner-mf))))
 
   m.r.p/MonadReader
   (-ask [m]
-    )
+    (m.p/-return
+     inner-ctx
+     (rwpromise-val
+      m
+      (fn [{env :monad.reader/env}]
+        {:monad.writer/output nil
+         :monad/val env}))))
   (-local [m f mv]
-    )
+    (m.p/-return
+     inner-ctx
+     (rwpromise-val
+      m
+      (fn [{env :monad.reader/env}]
+        (runnable.p/-run mv {:monad.reader/env (f env)})))))
 
   m.w.p/MonadWriter
   (-tell [m v]
-    )
+    (m.p/-return
+     inner-ctx
+     (rwpromise-val
+      m
+      (fn [{env :monad.reader/env}]
+        {:monad.writer/output (monoid/mappend output-ctx nil v)}))))
   (-listen [m mv]
-    )
+    (m.p/-return
+     inner-ctx
+     (rwpromise-val
+      m
+      (fn [{env :monad.reader/env}]
+        (let [{w :monad.writer/output
+               :as lv} (runnable.p/-run mv {:monad.reader/env env})]
+          {:monad.writer/output w
+           :monad/val lv})))))
   (-pass [m mv]
-    ))
+    (m.p/-return
+     inner-ctx
+     (rwpromise-val
+      m
+      (fn [{env :monad.reader/env}]
+        (let [{w :monad.writer/output
+               [val f] :monad/val} (runnable.p/-run mv {:monad.reader/env env})]
+          {:monad.writer/output (f w)
+           :monad/val val}))))))
 
 (def rwpromise-ctx
   (->RWPromiseTCtx
