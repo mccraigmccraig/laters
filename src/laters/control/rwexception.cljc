@@ -87,9 +87,6 @@
         m
         (fn [{env :monad.reader/env}]
 
-          ;; TODO is this try/catch logic correct ? not sure ... failures in
-          ;; the first -run don't get fed through the inner-2-mf, failures
-          ;; in the second -run get turned straight into a Failure
           (try
             (let [{w :monad.writer/output
                    v :monad/val} (try

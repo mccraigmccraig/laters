@@ -10,7 +10,22 @@
    [laters.abstract.tagged :as tagged]
    [laters.abstract.runnable.protocols :as runnable.p]
    [laters.monoid :as monoid]
-   [promesa.core :as p]))
+   [promesa.core :as p])
+  (:import
+   [java.util.concurrent
+    ExecutionException
+    CompletionException]))
+
+(def exception-wrapper-classes
+  #{ExecutionException CompletionException})
+
+(defn unwrap-exception
+  [e]
+  (if (contains?
+       exception-wrapper-classes
+       (some-> e .getClass))
+    (.getCause e)
+    e))
 
 ;; values are: <env> -> Promise<writer,val>
 (defrecord RWPromiseVal [ctx f]
@@ -39,12 +54,30 @@
       {:monad.writer/output nil
        :monad/val v}))))
 
+(defn error-rwpromise-body
+  [output-ctx e w]
+  (let [d (ex-data e)]
+    (if (contains? d :monad/error-channel)
+      (do
+        (swap! (get-in d [:monad/error-channel
+                          :monad.writer/output])
+               #(monoid/mappend output-ctx % w))
+        (p/rejected e))
+
+      (p/rejected
+       (ex-info
+        "RWPromise error"
+        {:monad/error-channel
+         {:monad.writer/output (monoid/mappend output-ctx nil w)}
+         :cause/data d}
+        e)))))
+
 (defn error-rwpromise-val
-  [ctx e]
+  [ctx output-ctx e w]
   (rwpromise-val
    ctx
    (fn [_]
-     (p/rejected e))))
+     (error-rwpromise-body output-ctx e w))))
 
 (defn rw-promise-t-bind-2
   ([output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
@@ -62,12 +95,21 @@
         (fn [{env :monad.reader/env}]
 
           (p/handle
-           (runnable.p/-run outer-mv {:monad.reader/env env})
+           (try
+             (runnable.p/-run outer-mv {:monad.reader/env env})
+             (catch Exception e
+               ;; (prn "catching 1" e)
+               (error-rwpromise-body output-ctx e nil)))
            (fn [{w :monad.writer/output
                 v :monad/val
                 :as right}
                left]
-             (let [inner-mv' (inner-2-mf left v)]
+             ;; (prn "left-right" [left right])
+             (let [inner-mv' (try
+                               (inner-2-mf (some-> left unwrap-exception) v)
+                               (catch Exception e
+                                 ;; (prn "catching 2" e)
+                                 (error-rwpromise-val inner-ctx output-ctx e w)))]
 
                (m.p/-bind
                 inner-ctx
@@ -77,37 +119,28 @@
                   (assert (rwpromise-val? outer-mv'))
 
                   (p/handle
-                   (runnable.p/-run outer-mv' {:monad.reader/env env})
+                   (try
+                     (runnable.p/-run outer-mv' {:monad.reader/env env})
+                     (catch Exception e
+                       ;; (prn "catching 3" e)
+                       (error-rwpromise-body output-ctx e nil)))
                    (fn [{w' :monad.writer/output
                         v' :monad/val
                         :as right}
                        left]
 
+                     ;; (prn "left-right 2" [left right])
+
                      (if (some? left)
-
-                       ;;TODO no so simple ... left val is probably an exception ... and on jvm
-                       ;; needs to be an exception, so need to thread all the
-                       ;; effects onto an atom in an ex-info
-                       {:monad.writer/output (monoid/mappend
-                                              output-ctx
-                                              nil w)
-                        :monad/val nil}
-
+                       ;; forward errors on
+                       (throw (unwrap-exception left))
 
                        {:monad.writer/output (monoid/mappend
                                               output-ctx
                                               nil
                                               w
                                               w')
-                        :monad/val (if discard-val? v v')})
-
-
-
-                     ))
-                  ))
-
-
-               ))))))))))
+                        :monad/val (if discard-val? v v')})))))))))))))))
 
 (deftype RWPromiseTCtx [output-ctx inner-ctx]
   ctx.p/Context
@@ -124,8 +157,7 @@
        (prn left right)
        (if (some? left)
          (err.p/-reject m left)
-         (inner-mf right))))
-    )
+         (inner-mf right)))))
 
   (-return [m v]
     (m.p/-return inner-ctx (plain-rwpromise-val m v)))
@@ -149,6 +181,7 @@
      inner-mv
      false
      (fn [left right]
+       ;; (prn "catch" [left right])
        (if (some? left)
          (inner-mf left)
          (m.p/-return m right)))))
