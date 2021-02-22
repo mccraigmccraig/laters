@@ -7,6 +7,7 @@
    [laters.abstract.monad :as m]
    [laters.abstract.runnable :as r]
    [laters.abstract.error :as error]
+   [laters.abstract.monad-test :as m.t]
    [laters.control.either :as either]))
 
 (deftest RWException-test
@@ -48,3 +49,37 @@
                  (error/catch (fn [e] (let [{x :x} (ex-data e)]
                                        (m/return (inc x)))))
                  (r/run)))))))
+
+(deftest monad-law-test
+  (testing "left-identity"
+    (let [[a b :as mvs] (m.t/left-identity-test-mvs
+                         sut/rwexception-ctx
+                         10
+                         (fn [v] (m/return sut/rwexception-ctx (inc v))))
+
+          [{a-val :monad/val}
+           {b-val :monad/val}] (map #(r/run % {:monad.reader/env :foo}) mvs)]
+      (is (= 11 a-val))
+      (is (= a-val b-val))))
+  (testing "right-identity"
+    (let [[a b :as mvs] (m.t/right-identity-test-mvs
+                         sut/rwexception-ctx
+                         (sut/plain-rwexception-val sut/rwexception-ctx :foo))
+
+          [{a-val :monad/val}
+           {b-val :monad/val}] (map #(r/run % {:monad.reader/env :foo}) mvs)]
+      (is (= :foo a-val))
+      (is (= a-val b-val))))
+  (testing "associativity"
+    (let [[a b :as mvs] (m.t/associativity-test-mvs
+                         sut/rwexception-ctx
+                         (sut/plain-rwexception-val sut/rwexception-ctx "foo")
+                         #(m/return sut/rwexception-ctx (str % "bar"))
+                         #(m/return sut/rwexception-ctx (str % "baz")))
+          [{a-val :monad/val}
+           {b-val :monad/val}] (map #(r/run % {:monad.reader/env :foo}) mvs)]
+      (is (= "foobarbaz" a-val))
+      (is (= a-val b-val)))))
+
+
+;; TODO need further tests verifying monad-laws for composition over error values
