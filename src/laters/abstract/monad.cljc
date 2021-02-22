@@ -11,7 +11,7 @@
 
 (defmacro bind
   ([mv f]
-   `(p/-bind (or ~'this-monad## (ctx.p/-get-context ~mv)) ~mv ~f))
+   `(p/-bind (or ~'this-context## (ctx.p/-get-context ~mv)) ~mv ~f))
   ([m mv f]
    `(p/-bind ~m ~mv ~f)))
 
@@ -23,7 +23,7 @@
   ([m v]
    `(p/-return ~m ~v))
   ([v]
-   `(p/-return ~'this-monad## ~v)))
+   `(p/-return ~'this-context## ~v)))
 
 (defn guard
   [m v]
@@ -34,7 +34,7 @@
 #?(:clj
    (defmacro with-context
      [ctx & body]
-     `(let [~'this-monad## ~ctx]
+     `(let [~'this-context## ~ctx]
         ~@body)))
 
 #?(:clj

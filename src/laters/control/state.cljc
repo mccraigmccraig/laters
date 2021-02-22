@@ -11,10 +11,10 @@
   ([m]
    `(state.p/-get-state ~m))
   ([]
-   `(state.p/-get-state ~'this-monad##)))
+   `(state.p/-get-state ~'this-context##)))
 
 (defmacro put-state
   ([m st]
    `(state.p/-put-state ~m ~st))
   ([st]
-   `(state.p/-put-state ~'this-monad## ~st)))
+   `(state.p/-put-state ~'this-context## ~st)))

@@ -33,22 +33,22 @@
   ([m v]
    `(p/-reject ~m ~v))
   ([v]
-   `(p/-reject ~'this-monad## ~v)))
+   `(p/-reject ~'this-context## ~v)))
 
 (defmacro handle
   ([m mv f2]
    `(always-handle ~m ~mv ~f2))
   ([mv f2]
-   `(always-handle ~'this-monad## ~mv ~f2)))
+   `(always-handle ~'this-context## ~mv ~f2)))
 
 (defmacro catch
   ([m mv f]
    `(always-catch ~m ~mv ~f))
   ([mv f]
-   `(always-catch ~'this-monad## ~mv ~f)))
+   `(always-catch ~'this-context## ~mv ~f)))
 
 (defmacro finally
   ([m mv f]
    `(always-finally ~m ~mv ~f))
   ([mv f]
-   `(always-finally ~'this-monad## ~mv ~f)))
+   `(always-finally ~'this-context## ~mv ~f)))
