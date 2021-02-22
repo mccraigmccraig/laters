@@ -6,7 +6,9 @@
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
    [laters.abstract.monad :as m]
    [laters.abstract.error :as error]
-   [laters.control.either :as either]))
+   [laters.abstract.context.protocols :as ctx.p]
+   [laters.control.either :as either]
+   [laters.abstract.monad-test :as m.t]))
 
 (deftest Exception-test
   (testing "bind"
@@ -73,3 +75,31 @@
                (fn [_] (m/return sut/tagged-exception-ctx 10)))]
       (is (= (sut/success sut/tagged-exception-ctx 10)
              mv)))))
+
+(deftest monad-law-test
+  (testing "left-identity"
+    (let [[a b :as mvs] (m.t/left-identity-test-mvs
+                         sut/exception-ctx
+                         10
+                         (fn [v] (m/return sut/exception-ctx (inc v))))
+
+          [a-val b-val] (map #(ctx.p/-extract %) mvs)]
+      (is (= 11 a-val))
+      (is (= a-val b-val))))
+  (testing "right-identity"
+    (let [[a b :as mvs] (m.t/right-identity-test-mvs
+                         sut/exception-ctx
+                         (sut/success sut/exception-ctx :foo))
+
+          [a-val b-val] (map #(ctx.p/-extract %) mvs)]
+      (is (= :foo a-val))
+      (is (= a-val b-val))))
+  (testing "associativity"
+    (let [[a b :as mvs] (m.t/associativity-test-mvs
+                         sut/exception-ctx
+                         (sut/success sut/exception-ctx "foo")
+                         #(m/return sut/exception-ctx (str % "bar"))
+                         #(m/return sut/exception-ctx (str % "baz")))
+          [a-val b-val] (map #(ctx.p/-extract %) mvs)]
+      (is (= "foobarbaz" a-val))
+      (is (= a-val b-val)))))
