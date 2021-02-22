@@ -7,7 +7,8 @@
    [laters.abstract.monad :as m]
    [laters.abstract.runnable :as r]
    [laters.abstract.error :as error]
-   [laters.abstract.monad-test :as m.t]))
+   [laters.abstract.monad-test :as m.t]
+   [laters.monoid :as monoid]))
 
 (deftest RWPromise-test
   (testing "return"
@@ -66,33 +67,56 @@
   (deref
    (r/run mv arg)))
 
+(defn run-compare-vals
+  [[mva mvb] expected-val]
+  (let [[{a-val :monad/val}
+         {b-val :monad/val}] (map #(run-deref % {:monad.reader/env :foo}) [mva mvb])]
+    (is (= expected-val a-val))
+    (is (= a-val b-val))))
+
 (deftest monad-law-test
-  (testing "left-identity"
-    (let [[a b :as mvs] (m.t/left-identity-test-mvs
-                         sut/rwpromise-ctx
-                         10
-                         (fn [v] (m/return sut/rwpromise-ctx (inc v))))
+  (testing "bind"
+    (testing "plain value >>="
+      (testing "left-identity"
+        (run-compare-vals
+         (m.t/left-identity-test-mvs
+          sut/rwpromise-ctx
+          10
+          (fn [v] (m/return sut/rwpromise-ctx (inc v))))
+         11))
+      (testing "right-identity"
+        (run-compare-vals
+         (m.t/right-identity-test-mvs
+          sut/rwpromise-ctx
+          (sut/plain-rwpromise-val sut/rwpromise-ctx :foo))
+         :foo))
+      (testing "associativity"
+        (run-compare-vals
+         (m.t/associativity-test-mvs
+          sut/rwpromise-ctx
+          (sut/plain-rwpromise-val sut/rwpromise-ctx "foo")
+          #(m/return sut/rwpromise-ctx (str % "bar"))
+          #(m/return sut/rwpromise-ctx (str % "baz")))
+         "foobarbaz")))
 
-          [{a-val :monad/val}
-           {b-val :monad/val}] (map #(run-deref % {:monad.reader/env :foo}) mvs)]
-      (is (= 11 a-val))
-      (is (= a-val b-val))))
-  (testing "right-identity"
-    (let [[a b :as mvs] (m.t/right-identity-test-mvs
-                         sut/rwpromise-ctx
-                         (sut/plain-rwpromise-val sut/rwpromise-ctx :foo))
-
-          [{a-val :monad/val}
-           {b-val :monad/val}] (map #(run-deref % {:monad.reader/env :foo}) mvs)]
-      (is (= :foo a-val))
-      (is (= a-val b-val))))
-  (testing "associativity"
-    (let [[a b :as mvs] (m.t/associativity-test-mvs
-                         sut/rwpromise-ctx
-                         (sut/plain-rwpromise-val sut/rwpromise-ctx "foo")
-                         #(m/return sut/rwpromise-ctx (str % "bar"))
-                         #(m/return sut/rwpromise-ctx (str % "baz")))
-          [{a-val :monad/val}
-           {b-val :monad/val}] (map #(run-deref % {:monad.reader/env :foo}) mvs)]
-      (is (= "foobarbaz" a-val))
-      (is (= a-val b-val)))))
+    (testing "failure >>="
+      (testing "left-identity"
+        (let [x (ex-info "boo" {})]
+          (run-compare-vals
+           (m.t/left-identity-test-mvs
+            sut/rwpromise-ctx
+            10
+            (fn [_v] (error/reject sut/rwpromise-ctx x)))
+           (sut/error-rwpromise-val
+            sut/rwpromise-ctx
+            monoid/map-monoid-ctx
+            x
+            nil))))
+      (testing "right-identity")
+      (testing "associativity")))
+  (testing "catch"
+    (testing "plain value")
+    (testing "failure"))
+  (testing "finally"
+    (testing "plain value")
+    (testing "failure")))

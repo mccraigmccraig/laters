@@ -5,9 +5,12 @@
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
    [laters.abstract.monad :as m]
+   [laters.abstract.monad.protocols :as m.p]
+   [laters.abstract.context.protocols :as ctx.p]
    [laters.abstract.runnable :as r]
    [laters.abstract.error :as error]
    [laters.abstract.monad-test :as m.t]
+   [laters.abstract.error-test :as error.t]
    [laters.control.either :as either]))
 
 (deftest RWException-test
@@ -50,36 +53,98 @@
                                        (m/return (inc x)))))
                  (r/run)))))))
 
+(defn run-compare-vals
+  [[mva mvb] expected-val]
+  (let [[{a-val :monad/val}
+         {b-val :monad/val}] (map #(r/run % {:monad.reader/env :foo}) [mva mvb])]
+    (is (= expected-val a-val))
+    (is (= a-val b-val))))
+
 (deftest monad-law-test
-  (testing "left-identity"
-    (let [[a b :as mvs] (m.t/left-identity-test-mvs
-                         sut/rwexception-ctx
-                         10
-                         (fn [v] (m/return sut/rwexception-ctx (inc v))))
+  (testing "bind"
+    (testing "plain value"
+      (testing "left-identity"
+        (run-compare-vals
+         (m.t/left-identity-test-mvs
+          sut/rwexception-ctx
+          10
+          (fn [v] (m/return sut/rwexception-ctx (inc v))))
+         11))
+      (testing "right-identity"
+        (run-compare-vals
+         (m.t/right-identity-test-mvs
+          sut/rwexception-ctx
+          (sut/plain-rwexception-val sut/rwexception-ctx :foo))
+         :foo))
+      (testing "associativity"
+        (run-compare-vals
+         (m.t/associativity-test-mvs
+          sut/rwexception-ctx
+          (sut/plain-rwexception-val sut/rwexception-ctx "foo")
+          #(m/return sut/rwexception-ctx (str % "bar"))
+          #(m/return sut/rwexception-ctx (str % "baz")))
+         "foobarbaz")))
 
-          [{a-val :monad/val}
-           {b-val :monad/val}] (map #(r/run % {:monad.reader/env :foo}) mvs)]
-      (is (= 11 a-val))
-      (is (= a-val b-val))))
-  (testing "right-identity"
-    (let [[a b :as mvs] (m.t/right-identity-test-mvs
-                         sut/rwexception-ctx
-                         (sut/plain-rwexception-val sut/rwexception-ctx :foo))
+    (testing "failure"
+      (testing "left-identity"
+        (let[x (ex-info "boo" {})]
+          (run-compare-vals
+           (m.t/left-identity-test-mvs
+            sut/rwexception-ctx
+            10
+            (fn [_v] (error/reject sut/rwexception-ctx x)))
+           (sut/failure x))))
+      (testing "right-identity"
+        (let [x (ex-info "boo" {})]
+          (run-compare-vals
+           (m.t/right-identity-test-mvs
+            sut/rwexception-ctx
+            (sut/error-rwexception-val sut/rwexception-ctx x))
+           (sut/failure x))))
+      (testing "associativity"
+        (let [x (ex-info "boo" {})]
+          (run-compare-vals
+           (m.t/associativity-test-mvs
+            sut/rwexception-ctx
+            (sut/error-rwexception-val sut/rwexception-ctx x)
+            #(m/return sut/rwexception-ctx (str % "bar"))
+            #(m/return sut/rwexception-ctx (str % "baz")))
+           (sut/failure x))))))
 
-          [{a-val :monad/val}
-           {b-val :monad/val}] (map #(r/run % {:monad.reader/env :foo}) mvs)]
-      (is (= :foo a-val))
-      (is (= a-val b-val))))
-  (testing "associativity"
-    (let [[a b :as mvs] (m.t/associativity-test-mvs
-                         sut/rwexception-ctx
-                         (sut/plain-rwexception-val sut/rwexception-ctx "foo")
-                         #(m/return sut/rwexception-ctx (str % "bar"))
-                         #(m/return sut/rwexception-ctx (str % "baz")))
-          [{a-val :monad/val}
-           {b-val :monad/val}] (map #(r/run % {:monad.reader/env :foo}) mvs)]
-      (is (= "foobarbaz" a-val))
-      (is (= a-val b-val)))))
+  (testing "catch"
+    (testing "left-identity"
+      (let [x (ex-info "boo" {})]
+        (run-compare-vals
+         (error.t/left-identity-test-mvs
+          sut/rwexception-ctx
+          x
+          #(error/reject' sut/rwexception-ctx %))
+         (sut/failure x))
+        (run-compare-vals
+         (error.t/left-identity-test-mvs
+          sut/rwexception-ctx
+          x
+          #(m/return' sut/rwexception-ctx %))
+         x)))
+    (testing "right-identity"
+      (let [x (ex-info "boo" {})]
+        (run-compare-vals
+         (error.t/right-identity-test-mvs
+          sut/rwexception-ctx
+          (sut/error-rwexception-val sut/rwexception-ctx x))
+         (sut/failure x))))
+    (testing "associativity"
+      (let [x (ex-info "boo" {})]
+        (run-compare-vals
+         (error.t/associativity-test-mvs
+          sut/rwexception-ctx
+          (sut/error-rwexception-val sut/rwexception-ctx x)
+          (partial error/reject' sut/rwexception-ctx)
+          (partial error/reject' sut/rwexception-ctx))
+         (sut/failure x)))))
+
+  (testing "finally")
 
 
-;; TODO need further tests verifying monad-laws for composition over error values
+
+  )

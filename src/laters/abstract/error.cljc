@@ -29,6 +29,10 @@
        (p/-finally ~m (p/-reject ~m t#) ~f)
        (throw t#))))
 
+(defn reject'
+  [m v]
+  (p/-reject m v))
+
 (defmacro reject
   ([m v]
    `(p/-reject ~m ~v))

@@ -164,7 +164,7 @@
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx (error-rwpromise-val m v)))
+    (m.p/-return inner-ctx (error-rwpromise-val m output-ctx v nil)))
   (-handle [m inner-mv inner-mf2]
     (rw-promise-t-bind-2
      output-ctx
