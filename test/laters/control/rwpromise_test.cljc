@@ -36,7 +36,7 @@
              (-> (m/return 100)
                  (m/bind (fn [_v] (throw (ex-info "boo" {:x 50}))))
                  (error/catch (fn [e] (let [{{x :x :as d} :cause/data} (ex-data e)]
-                                       (prn "catch data" d)
+                                       ;; (prn "catch data" d)
                                        (m/return (inc x)))))
                  (r/run)
                  deref)))))
