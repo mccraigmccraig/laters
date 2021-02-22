@@ -3,11 +3,17 @@
    [laters.abstract.monad.protocols :as p]
    [laters.abstract.context.protocols :as ctx.p]))
 
-(defn bind
+(defn bind'
   ([mv f]
    (p/-bind (ctx.p/-get-context mv) mv f))
   ([m mv f]
-   (p/-bind (or m (ctx.p/-get-context mv)) mv f)))
+   (p/-bind m mv f)))
+
+(defmacro bind
+  ([mv f]
+   `(p/-bind (or ~'this-monad## (ctx.p/-get-context ~mv)) ~mv ~f))
+  ([m mv f]
+   `(p/-bind ~m ~mv ~f)))
 
 (defn return'
   [m v]
