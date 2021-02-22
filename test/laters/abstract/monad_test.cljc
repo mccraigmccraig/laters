@@ -3,57 +3,31 @@
    [clojure.test :as t :refer [deftest testing is]]
    [laters.abstract.monad :as m]))
 
-;; (= (bind (return a) f)
-;;    (f a))
-(defn left-identity-test
-  [ctx a f]
-  (let [x (m/mlet ctx
-                  [a' (m/return a)]
-                  (f a'))
+;; https://wiki.haskell.org/Monad_laws
+;; compute the pairs of monadic values to compare
+;; to verify monad laws
 
-        y (m/mlet ctx
-                  (f a))]
+(defn left-identity-mvs
+  [ctx a mf]
+  (m/with-context ctx
+    [(m/bind (m/return a) mf)
+     (mf a)]))
 
-    (t/is (= x y))))
+(defn right-identity-mvs
+  [ctx mv]
+  (m/with-context ctx
+    [(m/bind mv (partial m/return' ctx))
+     mv]))
 
-;;(= (bind m return)
-;;    m)
-(defn right-identity-test
-  [ctx]
-  (let [m (m/return ctx 100)
-
-        a (m/mlet ctx
-                  [x m]
-                  (m/return x))
-
-        b (m/mlet ctx
-                  m)]
-    (t/is (= a b))))
-
-;; (= (bind (bind m f) g)
-;;     
-;;    )
-(defn associativity-test
-  [ctx]
-  (let [m (m/return ctx 100)
-        f #(m/return ctx (* 2 %))
-        g #(m/return ctx (- % 50))
-
-        a (m/mlet ctx
-                  [y (m/mlet ctx
-                             [x m]
-                             (f x))]
-                  (g y))
-
-        b (m/mlet ctx
-                  [x m]
-                  (m/mlet ctx
-                          [y (f x)]
-                          (g y)))
-
-        c (m/mlet ctx
-                  [x m
-                   y (f x)]
-                  (g y))]
-
-    (t/is (= a b c))))
+(defn associativity-mvs
+  [ctx m f g]
+  (m/with-context ctx
+    [(m/bind
+      (m/bind m f)
+      g)
+     (m/bind
+      m
+      (fn [x]
+        (m/bind
+         (f x)
+         g)))]))
