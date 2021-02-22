@@ -7,7 +7,7 @@
    [laters.abstract.monad :as m]
    [laters.abstract.runnable :as r]
    [laters.abstract.error :as error]
-   [laters.control.either :as either]))
+   [laters.abstract.monad-test :as m.t]))
 
 (deftest RWPromise-test
   (testing "return"
@@ -57,4 +57,42 @@
                  (r/run)
                  deref)))))
 
+  ;; TODO - how to preserve writer output in catch etc
+
   )
+
+(defn run-deref
+  [mv arg]
+  (deref
+   (r/run mv arg)))
+
+(deftest monad-law-test
+  (testing "left-identity"
+    (let [[a b :as mvs] (m.t/left-identity-test-mvs
+                         sut/rwpromise-ctx
+                         10
+                         (fn [v] (m/return sut/rwpromise-ctx (inc v))))
+
+          [{a-val :monad/val}
+           {b-val :monad/val}] (map #(run-deref % {:monad.reader/env :foo}) mvs)]
+      (is (= 11 a-val))
+      (is (= a-val b-val))))
+  (testing "right-identity"
+    (let [[a b :as mvs] (m.t/right-identity-test-mvs
+                         sut/rwpromise-ctx
+                         (sut/plain-rwpromise-val sut/rwpromise-ctx :foo))
+
+          [{a-val :monad/val}
+           {b-val :monad/val}] (map #(run-deref % {:monad.reader/env :foo}) mvs)]
+      (is (= :foo a-val))
+      (is (= a-val b-val))))
+  (testing "associativity"
+    (let [[a b :as mvs] (m.t/associativity-test-mvs
+                         sut/rwpromise-ctx
+                         (sut/plain-rwpromise-val sut/rwpromise-ctx "foo")
+                         #(m/return sut/rwpromise-ctx (str % "bar"))
+                         #(m/return sut/rwpromise-ctx (str % "baz")))
+          [{a-val :monad/val}
+           {b-val :monad/val}] (map #(run-deref % {:monad.reader/env :foo}) mvs)]
+      (is (= "foobarbaz" a-val))
+      (is (= a-val b-val)))))
