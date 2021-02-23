@@ -7,29 +7,49 @@
 ;; to verify monad laws
 
 (defn left-identity-test-mvs
-  [ctx a mf]
-  (m/with-context ctx
+  ([ctx a mf]
+   (left-identity-test-mvs {} ctx a mf))
+  ([{bind :bind
+     return :return
+     :or {bind m/bind'
+          return m/return'}}
+    ctx
+    a
+    mf]
 
-    [(m/bind (m/return a) mf)
-     (mf a)]))
+   [(bind ctx (return ctx a) mf)
+    (mf a)]))
 
 (defn right-identity-test-mvs
-  [ctx mv]
-  (m/with-context ctx
+  ([ctx mv] (right-identity-test-mvs {} ctx mv))
+  ([{bind :bind
+     return :return
+     :or {bind m/bind'
+          return m/return'}}
+    ctx
+    mv]
 
-    [(m/bind mv #(m/return ctx %))
-     mv]))
+   [(bind ctx mv #(return ctx %))
+    mv]))
 
 (defn associativity-test-mvs
-  [ctx m f g]
-  (m/with-context ctx
-
-    [(m/bind
-      (m/bind m f)
-      g)
-     (m/bind
-      m
-      (fn [x]
-        (m/bind
-         (f x)
-         g)))]))
+  ([ctx m f g] (associativity-test-mvs {} ctx m f g))
+  ([{bind :bind
+     _return :return
+     :or {bind m/bind'
+          _return m/return'}}
+    ctx
+    m
+    f
+    g]
+   [(bind ctx
+     (bind ctx m f)
+     g)
+    (bind
+     ctx
+     m
+     (fn [x]
+       (bind
+        ctx
+        (f x)
+        g)))]))
