@@ -39,17 +39,35 @@
   ([v]
    `(p/-reject ~'this-context## ~v)))
 
+(defn handle'
+  ([m mv f2]
+   (p/-handle m mv f2))
+  ([mv f2]
+   (p/-handle (ctx.p/-get-context mv) mv f2)))
+
 (defmacro handle
   ([m mv f2]
    `(always-handle ~m ~mv ~f2))
   ([mv f2]
    `(always-handle ~'this-context## ~mv ~f2)))
 
+(defn catch'
+  ([m mv f2]
+   (p/-catch m mv f2))
+  ([mv f2]
+   (p/-catch (ctx.p/-get-context mv) mv f2)))
+
 (defmacro catch
   ([m mv f]
    `(always-catch ~m ~mv ~f))
   ([mv f]
    `(always-catch ~'this-context## ~mv ~f)))
+
+(defn finally'
+  ([m mv f2]
+   (p/-finally m mv f2))
+  ([mv f2]
+   (p/-finally (ctx.p/-get-context mv) mv f2)))
 
 (defmacro finally
   ([m mv f]
