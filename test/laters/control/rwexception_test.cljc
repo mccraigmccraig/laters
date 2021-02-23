@@ -10,7 +10,6 @@
    [laters.abstract.runnable :as r]
    [laters.abstract.error :as error]
    [laters.abstract.monad-test :as m.t]
-   [laters.abstract.error-test :as error.t]
    [laters.control.either :as either]))
 
 (deftest RWException-test
@@ -110,13 +109,17 @@
     (testing "left-identity"
       (let [x (ex-info "boo" {})]
         (run-compare-vals
-         (error.t/left-identity-test-mvs
+         (m.t/left-identity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
           sut/rwexception-ctx
           x
           #(error/reject' sut/rwexception-ctx %))
          (sut/failure x))
         (run-compare-vals
-         (error.t/left-identity-test-mvs
+         (m.t/left-identity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
           sut/rwexception-ctx
           x
           #(m/return' sut/rwexception-ctx %))
@@ -124,19 +127,25 @@
     (testing "right-identity"
       (let [x (ex-info "boo" {})]
         (run-compare-vals
-         (error.t/right-identity-test-mvs
+         (m.t/right-identity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
           sut/rwexception-ctx
           (sut/error-rwexception-val sut/rwexception-ctx x))
          (sut/failure x))
         (run-compare-vals
-         (error.t/right-identity-test-mvs
+         (m.t/right-identity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
           sut/rwexception-ctx
           (sut/plain-rwexception-val sut/rwexception-ctx :foo))
          :foo)))
     (testing "associativity"
       (let [x (ex-info "boo" {})]
         (run-compare-vals
-         (error.t/associativity-test-mvs
+         (m.t/associativity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
           sut/rwexception-ctx
           (sut/error-rwexception-val sut/rwexception-ctx x)
           (partial error/reject' sut/rwexception-ctx)
@@ -144,14 +153,38 @@
          (sut/failure x)))
       (let [x (ex-info "boo" {:foo 100})]
         (run-compare-vals
-         (error.t/associativity-test-mvs
+         (m.t/associativity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
           sut/rwexception-ctx
           (sut/error-rwexception-val sut/rwexception-ctx x)
           (partial m/return' sut/rwexception-ctx)
           (partial m/return' sut/rwexception-ctx))
          x))))
 
-  (testing "finally")
+  (testing "finally"
+    (testing "left-identity"
+      (let [x (ex-info "boo" {:foo :bar})]
+
+        ;; this is broken, because finally ignores the
+        ;; :monad/value from the mf
+        ;; is it a problem ? thinking about it
+        ;; (run-compare-vals
+        ;;  (m.t/left-identity-test-mvs
+        ;;   {:bind error/finally'}
+        ;;   sut/rwexception-ctx
+        ;;   x
+        ;;   #(error/reject' sut/rwexception-ctx %))
+        ;;  (sut/failure x))
+
+
+        (run-compare-vals
+         (m.t/left-identity-test-mvs
+          {:bind error/finally'}
+          sut/rwexception-ctx
+          x
+          #(m/return' sut/rwexception-ctx %))
+         x))))
 
 
 
