@@ -6,6 +6,14 @@
 ;; compute the pairs of monadic values to compare
 ;; to verify monad laws
 
+;; return+bind are one pair which satisfy these laws
+;; reject+catch seem to be another... hence the ability
+;; to override the fns used
+;;
+;; this seems to make sense because:
+;; return+bind process the right branch and short-circuit the left
+;; reject+catch process the left branch and short-circuit the right
+
 (defn left-identity-test-mvs
   ([ctx a mf]
    (left-identity-test-mvs {} ctx a mf))
