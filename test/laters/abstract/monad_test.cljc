@@ -9,18 +9,21 @@
 (defn left-identity-test-mvs
   [ctx a mf]
   (m/with-context ctx
+
     [(m/bind (m/return a) mf)
      (mf a)]))
 
 (defn right-identity-test-mvs
   [ctx mv]
   (m/with-context ctx
-    [(m/bind mv (partial m/return' ctx))
+
+    [(m/bind mv #(m/return ctx %))
      mv]))
 
 (defn associativity-test-mvs
   [ctx m f g]
   (m/with-context ctx
+
     [(m/bind
       (m/bind m f)
       g)

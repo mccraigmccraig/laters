@@ -10,18 +10,21 @@
 (defn left-identity-test-mvs
   [ctx a mf]
   (m/with-context ctx
+
     [(error/catch (error/reject a) mf)
      (mf a)]))
 
 (defn right-identity-test-mvs
   [ctx mv]
   (m/with-context ctx
-    [(error/catch mv (partial error/reject' ctx))
+
+    [(error/catch mv #(error/reject ctx %))
      mv]))
 
 (defn associativity-test-mvs
   [ctx m f g]
   (m/with-context ctx
+
     [(error/catch
       (error/catch m f)
       g)
