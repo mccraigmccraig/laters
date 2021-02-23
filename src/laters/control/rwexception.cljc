@@ -71,10 +71,8 @@
   "pass both failure/left and right success/branches
    to the inner-2-mf... permits bind, catch, finally, handle
    behaviours to all use this same fn"
-  ([output-ctx inner-ctx m inner-mv inner-2-mf]
-   (rw-exception-t-bind-2 output-ctx inner-ctx m inner-mv false inner-2-mf))
-  ([output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
-   (m.p/-bind
+  [output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
+ (m.p/-bind
     inner-ctx
     inner-mv
 
@@ -141,7 +139,7 @@
                         :monad/val (if discard-val? v v')}))))
             (catch Exception e
               ;; final fallback
-              (error-rw-exception-body e))))))))))
+              (error-rw-exception-body e)))))))))
 
 (deftype RWExceptionTCtx [output-ctx inner-ctx]
   ctx.p/Context
@@ -180,6 +178,7 @@
      inner-ctx
      m
      inner-mv
+     false
      (fn [left right]
        (if (some? left)
          (inner-mf left)
