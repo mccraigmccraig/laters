@@ -130,14 +130,19 @@
             sut/rwpromise-ctx
             10
             (fn [_v] (error/reject sut/rwpromise-ctx x)))
-           (failure x)))
-        )
+           (failure x))))
       (testing "right-identity"
         (run-compare-vals
          (m.t/right-identity-test-mvs
           sut/rwpromise-ctx
           (sut/success-rwpromise-mv sut/rwpromise-ctx :foo))
-         :foo))
+         :foo)
+        (let [x (ex-info "boo" {})]
+          (run-compare-vals
+           (m.t/right-identity-test-mvs
+            sut/rwpromise-ctx
+            (sut/failure-rwpromise-mv sut/rwpromise-ctx x))
+           (failure x))))
       (testing "associativity"
         (run-compare-vals
          (m.t/associativity-test-mvs
@@ -145,7 +150,15 @@
           (sut/success-rwpromise-mv sut/rwpromise-ctx "foo")
           #(m/return sut/rwpromise-ctx (str % "bar"))
           #(m/return sut/rwpromise-ctx (str % "baz")))
-         "foobarbaz")))
+         "foobarbaz")
+        (let [x (ex-info "boo" {})]
+          (run-compare-vals
+           (m.t/associativity-test-mvs
+            sut/rwpromise-ctx
+            (sut/failure-rwpromise-mv sut/rwpromise-ctx x)
+            #(m/return sut/rwpromise-ctx (str % "bar"))
+            #(m/return sut/rwpromise-ctx (str % "baz")))
+           (failure x)))))
 
     ;; (testing "failure >>="
     ;;   (testing "left-identity"
