@@ -61,8 +61,7 @@
 
 (deftest monad-law-test
   (testing "bind"
-    (testing "plain value"
-      (testing "left-identity"
+    (testing "left-identity"
         (run-compare-vals
          (m.t/left-identity-test-mvs
           sut/rwexception-ctx
@@ -103,7 +102,7 @@
             (sut/error-rwexception-val sut/rwexception-ctx x)
             #(m/return sut/rwexception-ctx (str % "bar"))
             #(m/return sut/rwexception-ctx (str % "baz")))
-           (sut/failure x))))))
+           (sut/failure x)))))
 
   (testing "catch"
     (testing "left-identity"

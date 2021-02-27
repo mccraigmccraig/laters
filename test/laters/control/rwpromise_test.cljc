@@ -116,8 +116,7 @@
 
 (deftest monad-law-test
   (testing "bind"
-    (testing "plain value >>="
-      (testing "left-identity"
+    (testing "left-identity"
         (run-compare-vals
          (m.t/left-identity-test-mvs
           sut/rwpromise-ctx
@@ -159,24 +158,6 @@
             #(m/return sut/rwpromise-ctx (str % "bar"))
             #(m/return sut/rwpromise-ctx (str % "baz")))
            (failure x)))))
-
-    ;; (testing "failure >>="
-    ;;   (testing "left-identity"
-    ;;     (let [x (ex-info "boo" {})]
-    ;;       (run-compare-vals
-    ;;        (m.t/left-identity-test-mvs
-    ;;         sut/rwpromise-ctx
-    ;;         10
-    ;;         (fn [_v] (error/reject sut/rwpromise-ctx x)))
-    ;;        (sut/error-rwpromise-val
-    ;;         sut/rwpromise-ctx
-    ;;         monoid/map-monoid-ctx
-    ;;         x
-    ;;         nil)))
-    ;;     )
-    ;;   (testing "right-identity")
-    ;;   (testing "associativity"))
-    )
   (testing "catch"
     (testing "plain value")
     (testing "failure"))
