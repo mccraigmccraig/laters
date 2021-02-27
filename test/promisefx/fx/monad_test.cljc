@@ -1,6 +1,6 @@
-(ns promisefx.abstract.monad-test
+(ns promisefx.fx.monad-test
   (:require
-   [promisefx.abstract.monad :as m]))
+   [promisefx.fx.monad :as m]))
 
 ;; https://wiki.haskell.org/Monad_laws
 ;; compute the pairs of monadic values to compare
