@@ -1,14 +1,13 @@
-(ns promisefx.control.rwpromise-test
+(ns promisefx.prws-ctx-test
   (:require
-   [promisefx.control.rwpromise :as sut]
+   [promisefx.prws-ctx :as sut]
    [clojure.test :as t ]
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
-   [promisefx.abstract.monad :as m]
-   [promisefx.abstract.runnable :as r]
-   [promisefx.abstract.error :as error]
-   [promisefx.abstract.monad-test :as m.t]
-   [promisefx.monoid :as monoid])
+   [promisefx.fx.monad :as m]
+   [promisefx.data.runnable :as r]
+   [promisefx.fx.error :as error]
+   [promisefx.fx.monad-test :as m.t])
   (:import
    [java.io Writer]))
 
@@ -17,12 +16,12 @@
     (is (= {:monad.writer/output nil
             :monad/val :foo}
 
-           (-> (m/return sut/rwpromise-ctx :foo)
+           (-> (m/return sut/ctx :foo)
                (r/run)
                deref))))
 
   (testing "bind"
-    (m/with-context sut/rwpromise-ctx
+    (m/with-context sut/ctx
       (is (= {:monad.writer/output nil
               :monad/val 101}
 
@@ -32,7 +31,7 @@
                  deref)))))
 
   (testing "bind-catch"
-    (m/with-context sut/rwpromise-ctx
+    (m/with-context sut/ctx
       (is (= {:monad.writer/output nil
               :monad/val 51}
 
@@ -47,14 +46,14 @@
                  deref)))))
 
   (testing "run-catch"
-    (m/with-context sut/rwpromise-ctx
+    (m/with-context sut/ctx
       (is (= {:monad.writer/output nil
               :monad/val 51}
 
              (-> (m/return 100)
                  (m/bind (fn [_v]
                            (sut/rwpromise-mv
-                            sut/rwpromise-ctx
+                            sut/ctx
                             (fn [_]
                               (throw (ex-info "boo" {:x 50}))))))
                  (error/catch (fn [e] (let [{x :x :as _d} (ex-data e)]
@@ -119,44 +118,44 @@
     (testing "left-identity"
         (run-compare-vals
          (m.t/left-identity-test-mvs
-          sut/rwpromise-ctx
+          sut/ctx
           10
-          (fn [v] (m/return sut/rwpromise-ctx (inc v))))
+          (fn [v] (m/return sut/ctx (inc v))))
          11)
         (let [x (ex-info "boo" {})]
           (run-compare-vals
            (m.t/left-identity-test-mvs
-            sut/rwpromise-ctx
+            sut/ctx
             10
-            (fn [_v] (error/reject sut/rwpromise-ctx x)))
+            (fn [_v] (error/reject sut/ctx x)))
            (failure x))))
       (testing "right-identity"
         (run-compare-vals
          (m.t/right-identity-test-mvs
-          sut/rwpromise-ctx
-          (sut/success-rwpromise-mv sut/rwpromise-ctx :foo))
+          sut/ctx
+          (sut/success-rwpromise-mv sut/ctx :foo))
          :foo)
         (let [x (ex-info "boo" {})]
           (run-compare-vals
            (m.t/right-identity-test-mvs
-            sut/rwpromise-ctx
-            (sut/failure-rwpromise-mv sut/rwpromise-ctx x))
+            sut/ctx
+            (sut/failure-rwpromise-mv sut/ctx x))
            (failure x))))
       (testing "associativity"
         (run-compare-vals
          (m.t/associativity-test-mvs
-          sut/rwpromise-ctx
-          (sut/success-rwpromise-mv sut/rwpromise-ctx "foo")
-          #(m/return sut/rwpromise-ctx (str % "bar"))
-          #(m/return sut/rwpromise-ctx (str % "baz")))
+          sut/ctx
+          (sut/success-rwpromise-mv sut/ctx "foo")
+          #(m/return sut/ctx (str % "bar"))
+          #(m/return sut/ctx (str % "baz")))
          "foobarbaz")
         (let [x (ex-info "boo" {})]
           (run-compare-vals
            (m.t/associativity-test-mvs
-            sut/rwpromise-ctx
-            (sut/failure-rwpromise-mv sut/rwpromise-ctx x)
-            #(m/return sut/rwpromise-ctx (str % "bar"))
-            #(m/return sut/rwpromise-ctx (str % "baz")))
+            sut/ctx
+            (sut/failure-rwpromise-mv sut/ctx x)
+            #(m/return sut/ctx (str % "bar"))
+            #(m/return sut/ctx (str % "baz")))
            (failure x)))))
 
   (testing "catch"
@@ -166,17 +165,17 @@
          (m.t/left-identity-test-mvs
           {:bind error/catch'
            :return error/reject'}
-          sut/rwpromise-ctx
+          sut/ctx
           x
-          #(error/reject' sut/rwpromise-ctx %))
+          #(error/reject' sut/ctx %))
          (failure x))
         (run-compare-vals
          (m.t/left-identity-test-mvs
           {:bind error/catch'
            :return error/reject'}
-          sut/rwpromise-ctx
+          sut/ctx
           x
-          #(m/return' sut/rwpromise-ctx %))
+          #(m/return' sut/ctx %))
          x)))
     (testing "right-identity"
       (let [x (ex-info "boo" {})]
@@ -184,15 +183,15 @@
          (m.t/right-identity-test-mvs
           {:bind error/catch'
            :return error/reject'}
-          sut/rwpromise-ctx
-          (sut/failure-rwpromise-mv sut/rwpromise-ctx x))
+          sut/ctx
+          (sut/failure-rwpromise-mv sut/ctx x))
          (failure x))
         (run-compare-vals
          (m.t/right-identity-test-mvs
           {:bind error/catch'
            :return error/reject'}
-          sut/rwpromise-ctx
-          (sut/success-rwpromise-mv sut/rwpromise-ctx :foo))
+          sut/ctx
+          (sut/success-rwpromise-mv sut/ctx :foo))
          :foo)))
     (testing "associativity"
       (let [x (ex-info "boo" {})]
@@ -200,20 +199,20 @@
          (m.t/associativity-test-mvs
           {:bind error/catch'
            :return error/reject'}
-          sut/rwpromise-ctx
-          (sut/failure-rwpromise-mv sut/rwpromise-ctx x)
-          (partial error/reject' sut/rwpromise-ctx)
-          (partial error/reject' sut/rwpromise-ctx))
+          sut/ctx
+          (sut/failure-rwpromise-mv sut/ctx x)
+          (partial error/reject' sut/ctx)
+          (partial error/reject' sut/ctx))
          (failure x)))
       (let [x (ex-info "boo" {:foo 100})]
         (run-compare-vals
          (m.t/associativity-test-mvs
           {:bind error/catch'
            :return error/reject'}
-          sut/rwpromise-ctx
-          (sut/failure-rwpromise-mv sut/rwpromise-ctx x)
-          (partial m/return' sut/rwpromise-ctx)
-          (partial m/return' sut/rwpromise-ctx))
+          sut/ctx
+          (sut/failure-rwpromise-mv sut/ctx x)
+          (partial m/return' sut/ctx)
+          (partial m/return' sut/ctx))
          x))))
   (testing "finally"
     ))

@@ -1,4 +1,4 @@
-(ns promisefx.control.rwpromise
+(ns promisefx.prws-ctx
   (:require
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.context.protocols :as ctx.p]

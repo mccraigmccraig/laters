@@ -1,13 +1,14 @@
-(ns promisefx.control.either
+(ns promisefx.data.either
   (:require
-   [promisefx.abstract.context.protocols :as ctx.p])
+   [promisefx.context.protocols :as ctx.p]
+   [promisefx.data.extractable.protocols :as extractable.p])
   (:import
-   [promisefx.abstract.context.protocols Context]))
+   [promisefx.context.protocols Context]))
 
 (defrecord Left [^Context ctx v]
   ctx.p/Contextual
   (-get-context [_] ctx)
-  ctx.p/Extract
+  extractable.p/Extract
   (-extract [_] v))
 
 (defn left
@@ -22,7 +23,7 @@
 (defrecord Right [^Context ctx v]
   ctx.p/Contextual
   (-get-context [_] ctx)
-  ctx.p/Extract
+  extractable.p/Extract
   (-extract [_] v))
 
 (defn right
