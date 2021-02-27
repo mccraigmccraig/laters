@@ -16,10 +16,11 @@
     ExecutionException
     CompletionException]))
 
-(def exception-wrapper-classes
+(def ^:private exception-wrapper-classes
   #{ExecutionException CompletionException})
 
 (defn unwrap-exception
+  "remove j.u.c exception wrappers"
   [e]
   (if (contains?
        exception-wrapper-classes
@@ -27,8 +28,8 @@
     (.getCause e)
     e))
 
-;; values are: <env> -> Promise<writer,val>
-(defrecord RWPromiseVal [ctx f]
+;; values are: <env> -> Promise<log,val>
+(defrecord RWPromiseMV [ctx f]
   ctx.p/Contextual
   (-get-context [_] ctx)
   ctx.p/Extract
@@ -37,47 +38,96 @@
   (-run [_ arg]
     (f arg)))
 
-(defn rwpromise-val
+(defn rwpromise-mv
   [ctx f]
-  (->RWPromiseVal ctx f))
+  (->RWPromiseMV ctx f))
 
-(defn rwpromise-val?
+(defn rwpromise-mv?
   [v]
-  (instance? RWPromiseVal v))
+  (instance? RWPromiseMV v))
 
-(defn plain-rwpromise-val
+(defn success-rwpromise-mv
   [ctx v]
-  (rwpromise-val
+  (rwpromise-mv
    ctx
    (fn [_]
      (p/resolved
       {:monad.writer/output nil
        :monad/val v}))))
 
-(defn error-rwpromise-body
-  [output-ctx e w]
-  (let [d (ex-data e)]
-    (if (contains? d :monad/error-channel)
-      (do
-        (swap! (get-in d [:monad/error-channel
-                          :monad.writer/output])
-               #(monoid/mappend output-ctx % w))
-        (p/rejected e))
+(defn unwrap-failure-channel
+  "we use an ex-data to propagate effects in case of failure. we do
+   this because j.u.c.CompletableFutures only supports Exceptions as
+   failure cases"
+  [e]
+  (prn "unwrap-failure-channel" (unwrap-exception e))
+  (some-> e
+          unwrap-exception
+          ex-data
+          :monad.rwpromise/failure-channel
+          ;; a failure-channel should never include a value. remove
+          ;; it to prevent any confusion (e.g. left + right both some?)
+          (dissoc :monad/val)))
 
-      (p/rejected
-       (ex-info
-        "RWPromise error"
-        {:monad/error-channel
-         {:monad.writer/output (monoid/mappend output-ctx nil w)}
-         :cause/data d}
-        e)))))
+(defn unwrap-cause
+  "get at the original exception
 
-(defn error-rwpromise-val
-  [ctx output-ctx e w]
-  (rwpromise-val
+  if the provided exception has failure-channel data, then it wraps the
+  original exception
+
+  if the provided exception has no failure-channel data, then it is the
+  original exception"
+  [e]
+  (let [e (unwrap-exception e)
+        has-failure-channel? (some? (some-> e
+                                            ex-data
+                                            :monad.rwpromise/failure-channel))]
+    (if has-failure-channel?
+      (.getCause e)
+      e)))
+
+(defn failure-rwpromise-result
+  "take an exception and some failure-channel data, and return
+   a Promise of failure... which is an ex-info holding the failure
+   channel data
+
+   if the provided exception already has failure-channel data, then
+   it's a wrapped exception, in which case, preserve the original cause
+   in a new wrapper (along with the provided failure-channel data)
+
+   if the provided exception does not have failure-channel data, then
+   it is the cause, so use it as the cause in a new wrapper, along with
+   the provided failure-channel data
+
+   t: Promise<log,val>"
+  ([e] (failure-rwpromise-result e {:monad.writer/output nil}))
+
+  ([e failure-channel]
+   (let [e (unwrap-exception e)
+         has-failure-channel? (some? (some-> e
+                                             ex-data
+                                             :monad.rwpromise/failure-channel))
+         ;; preserve original cause if we are given a wrapped exception
+         cause (if has-failure-channel?
+                 (.getCause e)
+                 e)]
+
+     (prn "failure-rwpromise-result" e cause failure-channel)
+
+     (p/rejected
+      (ex-info
+       "RWPromise failure"
+       {:monad.rwpromise/failure-channel failure-channel
+        :cause/data (ex-data cause)}
+       cause)))))
+
+(defn failure-rwpromise-mv
+  "t: <env> -> Promise<log,val>"
+  [ctx e]
+  (rwpromise-mv
    ctx
    (fn [_]
-     (error-rwpromise-body output-ctx e w))))
+     (failure-rwpromise-result e))))
 
 (defn rw-promise-t-bind-2
   ([output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
@@ -86,11 +136,11 @@
     inner-mv
 
     (fn outer-mf [outer-mv]
-      (assert (rwpromise-val? outer-mv))
+      (assert (rwpromise-mv? outer-mv))
 
       (m.p/-return
        inner-ctx
-       (rwpromise-val
+       (rwpromise-mv
         m
         (fn [{env :monad.reader/env}]
 
@@ -99,48 +149,60 @@
              (runnable.p/-run outer-mv {:monad.reader/env env})
              (catch Exception e
                ;; (prn "catching 1" e)
-               (error-rwpromise-body output-ctx e nil)))
-           (fn [{w :monad.writer/output
-                v :monad/val
-                :as right}
-               left]
-             ;; (prn "left-right" [left right])
-             (let [inner-mv' (try
-                               (inner-2-mf (some-> left unwrap-exception) v)
+               (failure-rwpromise-result e)))
+           (fn [right left]
+             (prn "handle1" [right left])
+
+             (let [left? (some? left)
+                   {w :monad.writer/output
+                    v :monad/val} (if left?
+                                    (unwrap-failure-channel left)
+                                    right)
+                   _ (prn "handle1-unwrapped" [w v])
+
+                   inner-mv' (try
+                               (inner-2-mf
+                                (when left? (some-> left unwrap-cause))
+                                (when-not left? v))
                                (catch Exception e
                                  ;; (prn "catching 2" e)
-                                 (error-rwpromise-val inner-ctx output-ctx e w)))]
+                                 (failure-rwpromise-mv inner-ctx e)))]
 
                (m.p/-bind
                 inner-ctx
                 inner-mv'
 
                 (fn outer-mf' [outer-mv']
-                  (assert (rwpromise-val? outer-mv'))
+                  (assert (rwpromise-mv? outer-mv'))
 
                   (p/handle
                    (try
                      (runnable.p/-run outer-mv' {:monad.reader/env env})
                      (catch Exception e
                        ;; (prn "catching 3" e)
-                       (error-rwpromise-body output-ctx e nil)))
-                   (fn [{w' :monad.writer/output
-                        v' :monad/val
-                        :as right}
-                       left]
+                       (failure-rwpromise-result e)))
 
-                     ;; (prn "left-right 2" [left right])
+                   (fn [right' left']
+                     (prn "handle2" [right' left'])
 
-                     (if (some? left)
-                       ;; forward errors on
-                       (throw (unwrap-exception left))
+                     (let [left'? (some? left')
+                           {w' :monad.writer/output
+                            v' :monad/val} (if left'?
+                                             (unwrap-failure-channel left')
+                                             right')
 
-                       {:monad.writer/output (monoid/mappend
-                                              output-ctx
-                                              nil
-                                              w
-                                              w')
-                        :monad/val (if discard-val? v v')})))))))))))))))
+                           w'' (monoid/mappend output-ctx w w')]
+                       _ (prn "handle2-unwrapped" [w' v' w''])
+
+                       ;; (prn "left-right 2" [left right])
+
+                       (if left'?
+                         (failure-rwpromise-result
+                          left'
+                          {:monad.writer/output w''})
+
+                         {:monad.writer/output w''
+                          :monad/val (if discard-val? v v')}))))))))))))))))
 
 (deftype RWPromiseTCtx [output-ctx inner-ctx]
   ctx.p/Context
@@ -160,11 +222,11 @@
          (inner-mf right)))))
 
   (-return [m v]
-    (m.p/-return inner-ctx (plain-rwpromise-val m v)))
+    (m.p/-return inner-ctx (success-rwpromise-mv m v)))
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx (error-rwpromise-val m output-ctx v nil)))
+    (m.p/-return inner-ctx (failure-rwpromise-mv m output-ctx v nil)))
   (-handle [m inner-mv inner-mf2]
     (rw-promise-t-bind-2
      output-ctx
@@ -181,7 +243,7 @@
      inner-mv
      false
      (fn [left right]
-       ;; (prn "catch" [left right])
+       (prn "catch" [left right])
        (if (some? left)
          (inner-mf left)
          (m.p/-return m right)))))
@@ -199,7 +261,7 @@
   (-ask [m]
     (m.p/-return
      inner-ctx
-     (rwpromise-val
+     (rwpromise-mv
       m
       (fn [{env :monad.reader/env}]
         {:monad.writer/output nil
@@ -207,7 +269,7 @@
   (-local [m f mv]
     (m.p/-return
      inner-ctx
-     (rwpromise-val
+     (rwpromise-mv
       m
       (fn [{env :monad.reader/env}]
         (runnable.p/-run mv {:monad.reader/env (f env)})))))
@@ -216,14 +278,14 @@
   (-tell [m v]
     (m.p/-return
      inner-ctx
-     (rwpromise-val
+     (rwpromise-mv
       m
-      (fn [{env :monad.reader/env}]
+      (fn [{_env :monad.reader/env}]
         {:monad.writer/output (monoid/mappend output-ctx nil v)}))))
   (-listen [m mv]
     (m.p/-return
      inner-ctx
-     (rwpromise-val
+     (rwpromise-mv
       m
       (fn [{env :monad.reader/env}]
         (let [{w :monad.writer/output
@@ -233,7 +295,7 @@
   (-pass [m mv]
     (m.p/-return
      inner-ctx
-     (rwpromise-val
+     (rwpromise-mv
       m
       (fn [{env :monad.reader/env}]
         (let [{w :monad.writer/output
