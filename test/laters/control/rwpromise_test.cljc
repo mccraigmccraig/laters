@@ -158,9 +158,62 @@
             #(m/return sut/rwpromise-ctx (str % "bar"))
             #(m/return sut/rwpromise-ctx (str % "baz")))
            (failure x)))))
+
   (testing "catch"
-    (testing "plain value")
-    (testing "failure"))
+    (testing "left-identity"
+      (let [x (ex-info "boo" {})]
+        (run-compare-vals
+         (m.t/left-identity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
+          sut/rwpromise-ctx
+          x
+          #(error/reject' sut/rwpromise-ctx %))
+         (failure x))
+        (run-compare-vals
+         (m.t/left-identity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
+          sut/rwpromise-ctx
+          x
+          #(m/return' sut/rwpromise-ctx %))
+         x)))
+    (testing "right-identity"
+      (let [x (ex-info "boo" {})]
+        (run-compare-vals
+         (m.t/right-identity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
+          sut/rwpromise-ctx
+          (sut/failure-rwpromise-mv sut/rwpromise-ctx x))
+         (failure x))
+        (run-compare-vals
+         (m.t/right-identity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
+          sut/rwpromise-ctx
+          (sut/success-rwpromise-mv sut/rwpromise-ctx :foo))
+         :foo)))
+    (testing "associativity"
+      (let [x (ex-info "boo" {})]
+        (run-compare-vals
+         (m.t/associativity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
+          sut/rwpromise-ctx
+          (sut/failure-rwpromise-mv sut/rwpromise-ctx x)
+          (partial error/reject' sut/rwpromise-ctx)
+          (partial error/reject' sut/rwpromise-ctx))
+         (failure x)))
+      (let [x (ex-info "boo" {:foo 100})]
+        (run-compare-vals
+         (m.t/associativity-test-mvs
+          {:bind error/catch'
+           :return error/reject'}
+          sut/rwpromise-ctx
+          (sut/failure-rwpromise-mv sut/rwpromise-ctx x)
+          (partial m/return' sut/rwpromise-ctx)
+          (partial m/return' sut/rwpromise-ctx))
+         x))))
   (testing "finally"
-    (testing "plain value")
-    (testing "failure")))
+    ))
