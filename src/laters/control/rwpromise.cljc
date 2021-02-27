@@ -226,7 +226,7 @@
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx (failure-rwpromise-mv m output-ctx v nil)))
+    (m.p/-return inner-ctx (failure-rwpromise-mv m v)))
   (-handle [m inner-mv inner-mf2]
     (rw-promise-t-bind-2
      output-ctx

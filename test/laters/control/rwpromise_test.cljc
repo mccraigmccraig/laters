@@ -8,7 +8,9 @@
    [laters.abstract.runnable :as r]
    [laters.abstract.error :as error]
    [laters.abstract.monad-test :as m.t]
-   [laters.monoid :as monoid]))
+   [laters.monoid :as monoid])
+  (:import
+   [java.io Writer]))
 
 (deftest RWPromise-test
   (testing "return"
@@ -70,13 +72,20 @@
   Object
 
   ;; for the purposes of these tests we define equals between
-  ;; Failures as being equality of ex-data from the wrapped
-  ;; exceptions
+  ;; Failures as being identical? of causes of exceptions
   (equals [a b]
+    (prn "equals" a b)
     (and
      (some? (ex-data e))
      (instance? Failure b)
-     (= (ex-data e) (ex-data (.e b))))))
+     (identical? (sut/unwrap-cause e)
+                 (sut/unwrap-cause (.-e b))))))
+
+(defmethod print-method Failure [f ^Writer w]
+  (let [e (.-e f)]
+    (.write w "<< Failure: ")
+    (.write w (prn-str e))
+    (.write w " >>")))
 
 (defn failure
   [e]
@@ -88,7 +97,9 @@
   `(try
      ~@body
      (catch Exception e#
-       (failure e#))))
+       ;; we corall an error into being a marker value
+       ;; for simple test flow - errors are now just values
+       {:monad/val (failure e#)})))
 
 (defn run-deref
   [mv arg]
@@ -119,7 +130,8 @@
             sut/rwpromise-ctx
             10
             (fn [_v] (error/reject sut/rwpromise-ctx x)))
-           (failure x))))
+           (failure x)))
+        )
       (testing "right-identity"
         (run-compare-vals
          (m.t/right-identity-test-mvs
