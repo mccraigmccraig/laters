@@ -67,7 +67,7 @@
 
 
 ;; put promise failures into a marker for comparisons
-(deftype Failure [e]
+(deftype PRWSFailure [e]
   Object
 
   ;; for the purposes of these tests we define equals between
@@ -76,11 +76,15 @@
     (prn "equals" a b)
     (and
      (some? (ex-data e))
-     (instance? Failure b)
-     (identical? (sut/unwrap-cause e)
-                 (sut/unwrap-cause (.-e b))))))
+     (instance? PRWSFailure b)
+     (and
+      (identical? (sut/unwrap-cause e)
+                  (sut/unwrap-cause (.-e b)))
+      ;; should we be testing ex-data equality too ?
+      ;; (= (ex-data e) (ex-data (.-e b)))
+      ))))
 
-(defmethod print-method Failure [f ^Writer w]
+(defmethod print-method PRWSFailure [f ^Writer w]
   (let [e (.-e f)]
     (.write w "<< Failure: ")
     (.write w (prn-str e))
@@ -88,7 +92,7 @@
 
 (defn failure
   [e]
-  (->Failure
+  (->PRWSFailure
    (sut/unwrap-exception e)))
 
 (defmacro catch-failure
