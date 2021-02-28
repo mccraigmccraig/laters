@@ -175,62 +175,62 @@
         ;; on whether we are following the plain
         ;; or error path... need to think about this
 
-        (run-compare-vals
-         (m.t/left-identity-test-mvs
-          {:bind error/finally'
-           :return error/reject'}
-          sut/ctx
-          x
-          #(error/reject' sut/ctx %))
+        (m.t/run-left-identity-test
+         {:bind error/finally'
+          :return error/reject'}
+         sut/ctx
+         run-compare-vals
+         x
+         #(error/reject' sut/ctx %)
          (sut/failure x))
 
 
-        (run-compare-vals
-         (m.t/left-identity-test-mvs
-          {:bind error/finally'
-           :return m/return'}
-          sut/ctx
-          x
-          #(m/return' sut/ctx %))
+        (m.t/run-left-identity-test
+         {:bind error/finally'
+          :return m/return'}
+         sut/ctx
+         run-compare-vals
+         x
+         #(m/return' sut/ctx %)
          x)))
 
     (testing "right-identity"
       (let [x (ex-info "boo" {})]
-        (run-compare-vals
-         (m.t/right-identity-test-mvs
-          {:bind error/finally'
-           :return error/reject'}
-          sut/ctx
-          (sut/error-rwexception-val sut/ctx x))
+        (m.t/run-right-identity-test
+         {:bind error/finally'
+          :return error/reject'}
+         sut/ctx
+         run-compare-vals
+         (sut/error-rwexception-val sut/ctx x)
          (sut/failure x))
-        (run-compare-vals
-         (m.t/right-identity-test-mvs
-          {:bind error/finally'
-           :return m/return'}
-          sut/ctx
-          (sut/plain-rwexception-val sut/ctx :foo))
+        (m.t/run-right-identity-test
+         {:bind error/finally'
+          :return m/return'}
+         sut/ctx
+         run-compare-vals
+         (sut/plain-rwexception-val sut/ctx :foo)
          :foo)))
 
     (testing "associativity"
       (let [x (ex-info "boo" {})]
-        (run-compare-vals
-         (m.t/associativity-test-mvs
-          {:bind error/finally'
-           :return error/reject'}
-          sut/ctx
-          (sut/error-rwexception-val sut/ctx x)
-          (partial error/reject' sut/ctx)
-          (partial error/reject' sut/ctx))
+        (m.t/run-associativity-test
+         {:bind error/finally'
+          :return error/reject'}
+         sut/ctx
+         run-compare-vals
+         (sut/error-rwexception-val sut/ctx x)
+         (partial error/reject' sut/ctx)
+         (partial error/reject' sut/ctx)
          (sut/failure x)))
       (let [x (ex-info "boo" {:foo 100})]
-        (run-compare-vals
-         (m.t/associativity-test-mvs
-          {:bind error/finally'
-           :return m/return'}
-          sut/ctx
-          (sut/error-rwexception-val sut/ctx x)
-          (partial m/return' sut/ctx)
-          (partial m/return' sut/ctx))
+        (m.t/run-associativity-test
+         {:bind error/finally'
+          :return m/return'}
+         sut/ctx
+         run-compare-vals
+         (sut/error-rwexception-val sut/ctx x)
+         (partial m/return' sut/ctx)
+         (partial m/return' sut/ctx)
          (sut/failure x))))
     )
 
