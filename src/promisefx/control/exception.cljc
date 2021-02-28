@@ -4,8 +4,8 @@
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.fx.error.protocols :as err.p]
    [promisefx.data.extractable.protocols :as extractable.p]
-   [promisefx.identity-ctx :as id-ctx]
-   [promisefx.tagged-ctx :as tagged-ctx]))
+   [promisefx.control.identity :as ctrl.id]
+   [promisefx.control.tagged :as ctrl.tag]))
 
 (defrecord Success [ctx v]
   ctx.p/Contextual
@@ -86,7 +86,7 @@
     mv))
 
 (def ctx
-  (->ExceptionTCtx (id-ctx/->IdentityCtx [::ExceptionT ::id-ctx/Identity])))
+  (->ExceptionTCtx (ctrl.id/->IdentityCtx [::ExceptionT ::ctrl.id/Identity])))
 
 (def tagged-ctx
-  (->ExceptionTCtx (tagged-ctx/->TaggedCtx [::ExceptionT ::tagged-ctx/Tagged] nil)))
+  (->ExceptionTCtx (ctrl.tag/->TaggedCtx [::ExceptionT ::ctrl.tag/Tagged] nil)))

@@ -1,4 +1,4 @@
-(ns promisefx.control.rws-test
+(ns promisefx.control.rwsx-test
   (:require
    [promisefx.control.rwsx :as sut]
    [clojure.test :as t ]
