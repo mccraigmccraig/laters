@@ -40,7 +40,7 @@
                  (m/bind (fn [_v] (throw (ex-info "boo" {:x 50}))))
                  (error/catch (fn [e]
                                 (let [{x :x :as _d} (ex-data e)]
-                                  (prn "catch-type" (type e) (ex-data e))
+                                  ;; (prn "catch-type" (type e) (ex-data e))
                                   ;; (prn "catch data" d)
                                   (m/return (inc x)))))
                  (r/run)
@@ -74,7 +74,7 @@
   ;; for the purposes of these tests we define equals between
   ;; Failures as being identical? of causes of exceptions
   (equals [a b]
-    (prn "equals" a b)
+    ;; (prn "equals" a b)
     (and
      (some? (ex-data e))
      (instance? PRWSFailure b)

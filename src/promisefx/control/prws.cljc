@@ -61,7 +61,7 @@
    this because j.u.c.CompletableFutures only supports Exceptions as
    failure cases"
   [e]
-  (prn "unwrap-failure-channel" (unwrap-exception e))
+  ;; (prn "unwrap-failure-channel" (unwrap-exception e))
   (some-> e
           unwrap-exception
           ex-data
@@ -113,7 +113,7 @@
                  (.getCause e)
                  e)]
 
-     (prn "failure-rwpromise-result" e cause failure-channel)
+     ;; (prn "failure-rwpromise-result" e cause failure-channel)
 
      (p/rejected
       (ex-info
@@ -152,14 +152,14 @@
                ;; (prn "catching 1" e)
                (failure-rwpromise-result e)))
            (fn [right left]
-             (prn "handle1" [right left])
+             ;; (prn "handle1" [right left])
 
              (let [left? (some? left)
                    {w :monad.writer/output
                     v :monad/val} (if left?
                                     (unwrap-failure-channel left)
                                     right)
-                   _ (prn "handle1-unwrapped" [w v])
+                   ;; _ (prn "handle1-unwrapped" [w v])
 
                    inner-mv' (try
                                (inner-2-mf
@@ -184,7 +184,7 @@
                        (failure-rwpromise-result e)))
 
                    (fn [right' left']
-                     (prn "handle2" [right' left'])
+                     ;; (prn "handle2" [right' left'])
 
                      (let [left'? (some? left')
                            {w' :monad.writer/output
@@ -193,7 +193,7 @@
                                              right')
 
                            w'' (monoid/mappend output-ctx w w')]
-                       _ (prn "handle2-unwrapped" [w' v' w''])
+                       ;; _ (prn "handle2-unwrapped" [w' v' w''])
 
                        ;; (prn "left-right 2" [left right])
 
@@ -244,7 +244,7 @@
      inner-mv
      false
      (fn [left right]
-       (prn "catch" [left right])
+       ;; (prn "catch" [left right])
        (if (some? left)
          (inner-mf left)
          (m.p/-return m right)))))
