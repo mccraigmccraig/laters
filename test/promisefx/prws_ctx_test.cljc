@@ -156,7 +156,8 @@
     (testing "right-identity"
       (doseq [[mv xv] (let [x (ex-info "boo" {})]
                         [[(sut/failure-rwpromise-mv sut/ctx x) (failure x)]
-                         [(sut/success-rwpromise-mv sut/ctx :foo) :foo]])]))
+                         [(sut/success-rwpromise-mv sut/ctx :foo) :foo]])]
+        (err.t/run-right-identity-test sut/ctx run-compare-vals mv xv)))
 
     (testing "associativity"
       (doseq [[m f g xv] (let [x (ex-info "boo" {})]
@@ -167,6 +168,7 @@
                             [(sut/failure-rwpromise-mv sut/ctx x)
                              (partial m/return' sut/ctx)
                              (partial m/return' sut/ctx)
-                             x]])])))
+                             x]])]
+        (err.t/run-associativity-test sut/ctx run-compare-vals m f g xv))))
   (testing "finally"
     ))
