@@ -1,6 +1,6 @@
-(ns promisefx.exception-ctx-test
+(ns promisefx.control.exception-test
   (:require
-   [promisefx.exception-ctx :as sut]
+   [promisefx.control.exception :as sut]
    [clojure.test :as t ]
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])

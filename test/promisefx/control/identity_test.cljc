@@ -3,7 +3,7 @@
    [clojure.test :as t :refer [deftest testing is]]
    [promisefx.fx.monad :as m]
    [promisefx.fx.monad-test :as m.t]
-   [promisefx.identity-ctx :as sut]))
+   [promisefx.control.identity :as sut]))
 
 (deftest monad-law-tests
   (testing "left-identity"

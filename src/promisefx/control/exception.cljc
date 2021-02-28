@@ -1,4 +1,4 @@
-(ns promisefx.exception-ctx
+(ns promisefx.control.exception
   (:require
    [promisefx.context.protocols :as ctx.p]
    [promisefx.fx.monad.protocols :as m.p]

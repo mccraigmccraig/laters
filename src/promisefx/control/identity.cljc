@@ -1,4 +1,4 @@
-(ns promisefx.identity-ctx
+(ns promisefx.control.identity
   (:require
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.context.protocols :as ctx.p]))

@@ -1,6 +1,6 @@
-(ns promisefx.fx.rws-ctx-test
+(ns promisefx.control.rws-test
   (:require
-   [promisefx.rwsx-ctx :as sut]
+   [promisefx.control.rwsx :as sut]
    [clojure.test :as t ]
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
@@ -9,7 +9,8 @@
    [promisefx.context.protocols :as ctx.p]
    [promisefx.data.runnable :as r]
    [promisefx.fx.error :as error]
-   [promisefx.fx.monad-test :as m.t]))
+   [promisefx.fx.monad-test :as m.t]
+   [promisefx.fx.error-test :as err.t]))
 
 (deftest RWException-test
   (testing "return"

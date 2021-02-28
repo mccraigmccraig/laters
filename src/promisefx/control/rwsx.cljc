@@ -1,4 +1,4 @@
-(ns promisefx.rwsx-ctx
+(ns promisefx.control.rwsx
   (:require
    [promisefx.context.protocols :as ctx.p]
    [promisefx.fx.monad.protocols :as m.p]
@@ -8,8 +8,8 @@
    [promisefx.fx.reader.protocols :as m.r.p]
    [promisefx.fx.writer.protocols :as m.w.p]
    [promisefx.data.maybe :as maybe]
-   [promisefx.identity-ctx :as id-ctx]
-   [promisefx.tagged-ctx :as tagged-ctx]
+   [promisefx.control.identity :as ctrl.id]
+   [promisefx.control.tagged :as ctrl.tag]
    [promisefx.data.extractable.protocols :as extractable.p]
    [promisefx.data.runnable.protocols :as runnable.p]
    [promisefx.data.monoid :as monoid]))
@@ -244,12 +244,12 @@
 (def ctx
   (->RWExceptionTCtx
    monoid/map-monoid-ctx
-   (id-ctx/->IdentityCtx [::RWExceptionT ::monoid/map ::id-ctx/IdentityCtx])))
+   (ctrl.id/->IdentityCtx [::RWExceptionT ::monoid/map ::ctrl.id/IdentityCtx])))
 
 (def tagged-ctx
   (->RWExceptionTCtx
    monoid/map-monoid-ctx
-   (tagged-ctx/->TaggedCtx [::RWExceptionT ::monoid/map ::tagged-ctx/TaggedCtx] nil)))
+   (ctrl.tag/->TaggedCtx [::RWExceptionT ::monoid/map ::ctrl.tag/TaggedCtx] nil)))
 
 (comment
   (require '[promisefx.control.rwexception :as rwx])

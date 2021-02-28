@@ -1,4 +1,4 @@
-(ns promisefx.prws-ctx
+(ns promisefx.control.prws
   (:require
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.context.protocols :as ctx.p]
@@ -6,8 +6,8 @@
    [promisefx.fx.error.protocols :as err.p]
    [promisefx.fx.reader.protocols :as m.r.p]
    [promisefx.fx.writer.protocols :as m.w.p]
-   [promisefx.identity-ctx :as id-ctx]
-   [promisefx.tagged-ctx :as tagged-ctx]
+   [promisefx.control.identity :as ctrl.id]
+   [promisefx.control.tagged :as ctrl.tagged]
    [promisefx.data.extractable.protocols :as extractable.p]
    [promisefx.data.runnable.protocols :as runnable.p]
    [promisefx.data.monoid :as monoid]
@@ -307,12 +307,12 @@
 (def ctx
   (->RWPromiseTCtx
    monoid/map-monoid-ctx
-   (id-ctx/->IdentityCtx [::RWPromiseT ::monoid.map ::id-ctx/identityCtx])))
+   (ctrl.id/->IdentityCtx [::RWPromiseT ::monoid.map ::ctrl.id/identityCtx])))
 
 (def tagged-ctx
   (->RWPromiseTCtx
    monoid/map-monoid-ctx
-   (tagged-ctx/->TaggedCtx [::RWPromiseT ::monoid.map ::tagged-ctx/TaggedCtx] nil)))
+   (ctrl.tagged/->TaggedCtx [::RWPromiseT ::monoid.map ::ctrl.tagged/TaggedCtx] nil)))
 
 
 (comment

@@ -1,6 +1,6 @@
-(ns promisefx.prws-ctx-test
+(ns promisefx.control.prws-test
   (:require
-   [promisefx.prws-ctx :as sut]
+   [promisefx.control.prws :as sut]
    [clojure.test :as t ]
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
