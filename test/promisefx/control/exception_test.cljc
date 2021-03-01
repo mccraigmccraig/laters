@@ -7,6 +7,7 @@
    [promisefx.fx.monad :as m]
    [promisefx.fx.error :as error]
    [promisefx.data.extractable.protocols :as extractable.p]
+   [promisefx.data.success-failure :as s.f]
    [promisefx.context.protocols :as ctx.p]
    [promisefx.fx.monad-test :as m.t]))
 
@@ -20,7 +21,7 @@
                  sut/ctx
                  (m/return sut/ctx 5)
                  (fn [b] (m/return sut/ctx (+ a b))))))]
-      (is (= (sut/success sut/ctx 15)
+      (is (= (s.f/success sut/ctx 15)
              mv))))
 
   (testing "uncaught error"
@@ -32,7 +33,7 @@
                  sut/ctx
                  (throw (ex-info "boo!" {}))
                  (fn [b] (m/return sut/ctx (+ a b))))))]
-      (is (sut/failure? mv))
+      (is (s.f/failure? mv))
       (is (= "boo!" (some-> mv :e .getMessage)))))
 
   (testing "catch"
@@ -40,7 +41,7 @@
                  sut/ctx
                  (throw (ex-info "boo!" {}))
                (fn [e] (m/return sut/ctx 10)))]
-      (is (= (sut/success sut/ctx 10)
+      (is (= (s.f/success sut/ctx 10)
              mv)))))
 
 (deftest TaggedException-test
@@ -53,7 +54,7 @@
                  sut/tagged-ctx
                  (m/return sut/tagged-ctx 5)
                  (fn [b] (m/return sut/tagged-ctx (+ a b))))))]
-      (is (= (sut/success sut/tagged-ctx 15)
+      (is (= (s.f/success sut/tagged-ctx 15)
              mv))))
 
   (testing "uncaught error"
@@ -65,7 +66,7 @@
                  sut/tagged-ctx
                  (throw (ex-info "boo!" {}))
                  (fn [b] (m/return sut/tagged-ctx (+ a b))))))]
-      (is (sut/failure? mv))
+      (is (s.f/failure? mv))
       (is (= "boo!" (-> mv :e .getMessage)))))
 
   (testing "catch"
@@ -73,7 +74,7 @@
                  sut/tagged-ctx
                  (throw (ex-info "boo!" {}))
                (fn [_] (m/return sut/tagged-ctx 10)))]
-      (is (= (sut/success sut/tagged-ctx 10)
+      (is (= (s.f/success sut/tagged-ctx 10)
              mv)))))
 
 (deftest monad-law-test
@@ -89,7 +90,7 @@
   (testing "right-identity"
     (let [[a b :as mvs] (m.t/right-identity-test-mvs
                          sut/ctx
-                         (sut/success sut/ctx :foo))
+                         (s.f/success sut/ctx :foo))
 
           [a-val b-val] (map #(extractable.p/-extract %) mvs)]
       (is (= :foo a-val))
@@ -97,7 +98,7 @@
   (testing "associativity"
     (let [[a b :as mvs] (m.t/associativity-test-mvs
                          sut/ctx
-                         (sut/success sut/ctx "foo")
+                         (s.f/success sut/ctx "foo")
                          #(m/return sut/ctx (str % "bar"))
                          #(m/return sut/ctx (str % "baz")))
           [a-val b-val] (map #(extractable.p/-extract %) mvs)]

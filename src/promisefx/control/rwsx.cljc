@@ -12,19 +12,8 @@
    [promisefx.control.tagged :as ctrl.tag]
    [promisefx.data.extractable.protocols :as extractable.p]
    [promisefx.data.runnable.protocols :as runnable.p]
-   [promisefx.data.monoid :as monoid]))
-
-(defrecord Failure [e]
-  extractable.p/Extract
-  (-extract [_] e))
-
-(defn failure
-  [e]
-  (->Failure e))
-
-(defn failure?
-  [v]
-  (instance? Failure v))
+   [promisefx.data.monoid :as monoid]
+   [promisefx.data.success-failure :as s.f]))
 
 ;; values are: <env> -> <writer,success|failure>
 (defrecord RWExceptionVal [ctx f]
@@ -53,12 +42,12 @@
       :monad/val v})))
 
 (defn error-rw-exception-body
-  ([e] (error-rw-exception-body nil e))
-  ([output e]
+  ([ctx e] (error-rw-exception-body ctx nil e))
+  ([ctx output e]
    (merge
     {:monad.writer/output nil}
     output
-    {:monad/val (failure e)})))
+    {:monad/val (s.f/failure ctx e)})))
 
 (defn error-rwexception-val
   ([ctx e] (error-rwexception-val ctx nil e))
@@ -66,13 +55,13 @@
    (rwexception-val
     ctx
     (fn [_]
-      (error-rw-exception-body output e)))))
+      (error-rw-exception-body ctx output e)))))
 
 (defn rw-exception-t-bind-2
   "pass both failure/left and right success/branches
    to the inner-2-mf... permits bind, catch, finally, handle
    behaviours to all use this same fn"
-  [output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
+  [outer-ctx output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
  (m.p/-bind
     inner-ctx
     inner-mv
@@ -94,9 +83,9 @@
                                     {:monad.reader/env env})
                                    (catch Exception e
                                      ;; catch and thread errors forward
-                                     (error-rw-exception-body e)))
+                                     (error-rw-exception-body outer-ctx e)))
 
-                  [left right] (if (failure? v)
+                  [left right] (if (s.f/failure? v)
                                  [(extractable.p/-extract v) nil]
                                  [nil (extractable.p/-extract v)])
 
@@ -105,7 +94,7 @@
                               (catch Exception e
                                 ;; catch and thread errors forward
                                 (error-rwexception-val
-                                 inner-ctx
+                                 outer-ctx
                                  {:monad.writer/output (monoid/mappend
                                                         output-ctx
                                                         nil
@@ -127,6 +116,7 @@
                                              (catch Exception e
                                                ;; catch and thread errors forward
                                                (error-rw-exception-body
+                                                outer-ctx
                                                 {:monad.writer/output (monoid/mappend
                                                                        output-ctx
                                                                        nil
@@ -140,7 +130,7 @@
                         :monad/val (if discard-val? v v')}))))
             (catch Exception e
               ;; final fallback
-              (error-rw-exception-body e)))))))))
+              (error-rw-exception-body outer-ctx e)))))))))
 
 (deftype RWExceptionTCtx [output-ctx inner-ctx]
   ctx.p/Context
@@ -148,6 +138,7 @@
   m.p/Monad
   (-bind [m inner-mv inner-mf]
     (rw-exception-t-bind-2
+     m
      output-ctx
      inner-ctx
      m
@@ -166,6 +157,7 @@
     (m.p/-return inner-ctx (error-rwexception-val m v)))
   (-handle [m inner-mv inner-mf2]
     (rw-exception-t-bind-2
+     m
      output-ctx
      inner-ctx
      m
@@ -175,6 +167,7 @@
   (-catch [m inner-mv inner-mf]
     ;; catch is like bind for failure
     (rw-exception-t-bind-2
+     m
      output-ctx
      inner-ctx
      m
@@ -187,6 +180,7 @@
   (-finally [m inner-mv inner-mf]
     ;; and finally is like bind for whatever
     (rw-exception-t-bind-2
+     m
      output-ctx
      inner-ctx
      m
