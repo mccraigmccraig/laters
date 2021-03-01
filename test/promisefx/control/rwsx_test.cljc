@@ -5,15 +5,13 @@
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
    [promisefx.fx.monad :as m]
-   [promisefx.fx.monad.protocols :as m.p]
-   [promisefx.context.protocols :as ctx.p]
    [promisefx.data.runnable :as r]
    [promisefx.data.success-failure :as s.f]
    [promisefx.fx.error :as error]
    [promisefx.fx.monad-test :as m.t]
    [promisefx.fx.error-test :as err.t]))
 
-(deftest RWException-test
+(deftest RWSX-test
   (testing "return"
     (is (= {:promisefx.writer/output nil
             :promisefx/val :foo}
@@ -45,7 +43,7 @@
 
              (-> (m/return 100)
                  (m/bind (fn [_v]
-                           (sut/rwexception-val
+                           (sut/rwsx-val
                             sut/ctx
                             (fn [_]
                               (throw (ex-info "boo" {:x 50}))))))
@@ -73,20 +71,20 @@
         (m.t/run-left-identity-test sut/ctx run-compare-vals a mf xv)))
 
     (testing "right-identity"
-      (doseq [[mv xv] [[(sut/plain-rwexception-val sut/ctx :foo)
+      (doseq [[mv xv] [[(sut/success-rwsx-val sut/ctx :foo)
                         :foo]
                        (let [x (ex-info "boo" {})]
-                         [(sut/error-rwexception-val sut/ctx x)
+                         [(sut/failure-rwsx-val sut/ctx x)
                           (s.f/failure sut/ctx x)])]]
         (m.t/run-right-identity-test sut/ctx run-compare-vals mv xv)))
 
     (testing "associativity"
-      (doseq [[m f g xv] [[(sut/plain-rwexception-val sut/ctx "foo")
+      (doseq [[m f g xv] [[(sut/success-rwsx-val sut/ctx "foo")
                            #(m/return sut/ctx (str % "bar"))
                            #(m/return sut/ctx (str % "baz"))
                            "foobarbaz"]
                           (let [x (ex-info "boo" {})]
-                            [(sut/error-rwexception-val sut/ctx x)
+                            [(sut/failure-rwsx-val sut/ctx x)
                              #(m/return sut/ctx (str % "bar"))
                              #(m/return sut/ctx (str % "baz"))
                              (s.f/failure sut/ctx x)])]]
@@ -105,19 +103,19 @@
 
     (testing "right-identity"
       (doseq [[mv xv] (let [x (ex-info "boo" {})]
-                        [[(sut/error-rwexception-val sut/ctx x)
+                        [[(sut/failure-rwsx-val sut/ctx x)
                           (s.f/failure sut/ctx x)]
-                         [(sut/plain-rwexception-val sut/ctx :foo)
+                         [(sut/success-rwsx-val sut/ctx :foo)
                           :foo]])]
         (err.t/run-right-identity-test sut/ctx run-compare-vals mv xv)))
 
     (testing "associativity"
       (doseq [[m f g xv] (let [x (ex-info "boo" {})]
-                           [[(sut/error-rwexception-val sut/ctx x)
+                           [[(sut/failure-rwsx-val sut/ctx x)
                              (partial error/reject' sut/ctx)
                              (partial error/reject' sut/ctx)
                              (s.f/failure sut/ctx x)]
-                            [(sut/error-rwexception-val sut/ctx x)
+                            [(sut/failure-rwsx-val sut/ctx x)
                              (partial m/return' sut/ctx)
                              (partial m/return' sut/ctx)
                              x]])]
@@ -160,14 +158,14 @@
           :return error/reject'}
          sut/ctx
          run-compare-vals
-         (sut/error-rwexception-val sut/ctx x)
+         (sut/failure-rwsx-val sut/ctx x)
          (s.f/failure sut/ctx x))
         (m.t/run-right-identity-test
          {:bind error/finally'
           :return m/return'}
          sut/ctx
          run-compare-vals
-         (sut/plain-rwexception-val sut/ctx :foo)
+         (sut/success-rwsx-val sut/ctx :foo)
          :foo)))
 
     (testing "associativity"
@@ -177,7 +175,7 @@
           :return error/reject'}
          sut/ctx
          run-compare-vals
-         (sut/error-rwexception-val sut/ctx x)
+         (sut/failure-rwsx-val sut/ctx x)
          (partial error/reject' sut/ctx)
          (partial error/reject' sut/ctx)
          (s.f/failure sut/ctx x)))
@@ -187,7 +185,7 @@
           :return m/return'}
          sut/ctx
          run-compare-vals
-         (sut/error-rwexception-val sut/ctx x)
+         (sut/failure-rwsx-val sut/ctx x)
          (partial m/return' sut/ctx)
          (partial m/return' sut/ctx)
          (s.f/failure sut/ctx x))))

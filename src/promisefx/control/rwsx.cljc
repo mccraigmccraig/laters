@@ -4,10 +4,8 @@
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.fx.monad :as m]
    [promisefx.fx.error.protocols :as err.p]
-   [promisefx.fx.error :as error]
    [promisefx.fx.reader.protocols :as m.r.p]
    [promisefx.fx.writer.protocols :as m.w.p]
-   [promisefx.data.maybe :as maybe]
    [promisefx.control.identity :as ctrl.id]
    [promisefx.control.tagged :as ctrl.tag]
    [promisefx.data.extractable.protocols :as extractable.p]
@@ -16,7 +14,7 @@
    [promisefx.data.success-failure :as s.f]))
 
 ;; values are: <env> -> <writer,success|failure>
-(defrecord RWExceptionVal [ctx f]
+(defrecord RWSXVal [ctx f]
   ctx.p/Contextual
   (-get-context [_] ctx)
   extractable.p/Extract
@@ -25,37 +23,37 @@
   (-run [_ arg]
     (f arg)))
 
-(defn rwexception-val
+(defn rwsx-val
   [ctx f]
-  (->RWExceptionVal ctx f))
+  (->RWSXVal ctx f))
 
-(defn rwexception-val?
+(defn rwsx-val?
   [v]
-  (instance? RWExceptionVal v))
+  (instance? RWSXVal v))
 
-(defn plain-rwexception-val
+(defn success-rwsx-val
   [ctx v]
-  (rwexception-val
+  (rwsx-val
    ctx
    (fn [_]
      {:promisefx.writer/output nil
       :promisefx/val v})))
 
-(defn error-rw-exception-body
-  ([ctx e] (error-rw-exception-body ctx nil e))
+(defn failure-rwsx-body
+  ([ctx e] (failure-rwsx-body ctx nil e))
   ([ctx output e]
    (merge
     {:promisefx.writer/output nil}
     output
     {:promisefx/val (s.f/failure ctx e)})))
 
-(defn error-rwexception-val
-  ([ctx e] (error-rwexception-val ctx nil e))
+(defn failure-rwsx-val
+  ([ctx e] (failure-rwsx-val ctx nil e))
   ([ctx output e]
-   (rwexception-val
+   (rwsx-val
     ctx
     (fn [_]
-      (error-rw-exception-body ctx output e)))))
+      (failure-rwsx-body ctx output e)))))
 
 (defn rw-exception-t-bind-2
   "pass both failure/left and right success/branches
@@ -67,11 +65,11 @@
     inner-mv
 
     (fn outer-mf [outer-mv]
-      (assert (rwexception-val? outer-mv) (type outer-mv))
+      (assert (rwsx-val? outer-mv) (type outer-mv))
 
       (m.p/-return
        inner-ctx
-       (rwexception-val
+       (rwsx-val
         m
         (fn [{env :promisefx.reader/env}]
 
@@ -83,7 +81,7 @@
                                     {:promisefx.reader/env env})
                                    (catch Exception e
                                      ;; catch and thread errors forward
-                                     (error-rw-exception-body outer-ctx e)))
+                                     (failure-rwsx-body outer-ctx e)))
 
                   [left right] (if (s.f/failure? v)
                                  [(extractable.p/-extract v) nil]
@@ -93,7 +91,7 @@
                               (inner-2-mf left right)
                               (catch Exception e
                                 ;; catch and thread errors forward
-                                (error-rwexception-val
+                                (failure-rwsx-val
                                  outer-ctx
                                  {:promisefx.writer/output (monoid/mappend
                                                         output-ctx
@@ -106,7 +104,7 @@
                    inner-mv'
 
                    (fn outer-mf' [outer-mv']
-                     (assert (rwexception-val? outer-mv'))
+                     (assert (rwsx-val? outer-mv'))
 
                      (let [{w' :promisefx.writer/output
                             v' :promisefx/val} (try
@@ -115,7 +113,7 @@
                                               {:promisefx.reader/env env})
                                              (catch Exception e
                                                ;; catch and thread errors forward
-                                               (error-rw-exception-body
+                                               (failure-rwsx-body
                                                 outer-ctx
                                                 {:promisefx.writer/output (monoid/mappend
                                                                        output-ctx
@@ -130,7 +128,7 @@
                         :promisefx/val (if discard-val? v v')}))))
             (catch Exception e
               ;; final fallback
-              (error-rw-exception-body outer-ctx e)))))))))
+              (failure-rwsx-body outer-ctx e)))))))))
 
 (deftype RWExceptionTCtx [output-ctx inner-ctx]
   ctx.p/Context
@@ -150,11 +148,11 @@
          (inner-mf right)))))
 
   (-return [m v]
-    (m.p/-return inner-ctx (plain-rwexception-val m v)))
+    (m.p/-return inner-ctx (success-rwsx-val m v)))
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx (error-rwexception-val m v)))
+    (m.p/-return inner-ctx (failure-rwsx-val m v)))
   (-handle [m inner-mv inner-mf2]
     (rw-exception-t-bind-2
      m
@@ -193,7 +191,7 @@
   (-ask [m]
     (m.p/-return
      inner-ctx
-     (rwexception-val
+     (rwsx-val
       m
       (fn [{env :promisefx.reader/env}]
         {:promisefx.writer/output nil
@@ -201,7 +199,7 @@
   (-local [m f mv]
     (m.p/-return
      inner-ctx
-     (rwexception-val
+     (rwsx-val
       m
       (fn [{env :promisefx.reader/env}]
         (runnable.p/-run mv {:promisefx.reader/env (f env)})))))
@@ -210,14 +208,14 @@
   (-tell [m v]
     (m.p/-return
      inner-ctx
-     (rwexception-val
+     (rwsx-val
       m
       (fn [{env :promisefx.reader/env}]
         {:promisefx.writer/output (monoid/mappend output-ctx nil v)}))))
   (-listen [m mv]
     (m.p/-return
      inner-ctx
-     (rwexception-val
+     (rwsx-val
       m
       (fn [{env :promisefx.reader/env}]
         (let [{w :promisefx.writer/output
@@ -227,7 +225,7 @@
   (-pass [m mv]
     (m.p/-return
      inner-ctx
-     (rwexception-val
+     (rwsx-val
       m
       (fn [{env :promisefx.reader/env}]
         (let [{w :promisefx.writer/output
