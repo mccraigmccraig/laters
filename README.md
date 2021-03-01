@@ -109,12 +109,12 @@ the writer effect allows functions to write to an append-only log without needin
 
 ;; =>
 ;; {:promisefx/val {:id 100 :email "foo@foo.com" :name "mr. foo mcfoo"}
-    :promisefx.writer/output {:send-email [{:to "foo@foo.com"
-                                            :subject "welcome"
-                                            :body "hi mr. foo mcfoo"}]
-                              :db-change [:users [nil {:id 100
-                                                       :email "foo@foo.com"
-                                                       :name "mr. foo mcfoo"}]]}}
+;;  :promisefx.writer/output {:send-email [{:to "foo@foo.com"
+;;                                          :subject "welcome"
+;;                                          :body "hi mr. foo mcfoo"}]
+;;                            :db-change [:users [nil {:id 100
+;;                                                     :email "foo@foo.com"
+;;                                                     :name "mr. foo mcfoo"}]]}}
 ```
 
 ### state effect
