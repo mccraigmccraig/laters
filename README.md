@@ -140,7 +140,7 @@ these effects are made available in the following contexts:
 
 * values in the RWSX context are functions of the environment+state, returning writer output, and updated state and a value as a map
 
-```
+```clojure
 {:promisefx/val <value>
  :promisefx.writer/output <output>
  :promisefx.state/state <updated-state>}
@@ -151,7 +151,7 @@ these effects are made available in the following contexts:
 
 * values in the RWSPromise context are functions of the environment+state, returning a promise of writer output, updated state and a value,
 
-```
+```clojure
 Promise<{:promisefx/val <value>
          :promisefx.writer/output <output>
          :promisefx.state/state <updated-state>}>
