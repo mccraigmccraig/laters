@@ -53,8 +53,8 @@
    ctx
    (fn [_]
      (p/resolved
-      {:monad.writer/output nil
-       :monad/val v}))))
+      {:promisefx.writer/output nil
+       :promisefx/val v}))))
 
 (defn unwrap-failure-channel
   "we use an ex-data to propagate effects in case of failure. we do
@@ -65,10 +65,10 @@
   (some-> e
           unwrap-exception
           ex-data
-          :monad.rwpromise/failure-channel
+          :promisefx.rwpromise/failure-channel
           ;; a failure-channel should never include a value. remove
           ;; it to prevent any confusion (e.g. left + right both some?)
-          (dissoc :monad/val)))
+          (dissoc :promisefx/val)))
 
 (defn unwrap-cause
   "get at the original exception
@@ -82,7 +82,7 @@
   (let [e (unwrap-exception e)
         has-failure-channel? (some? (some-> e
                                             ex-data
-                                            :monad.rwpromise/failure-channel))]
+                                            :promisefx.rwpromise/failure-channel))]
     (if has-failure-channel?
       (.getCause e)
       e)))
@@ -101,13 +101,13 @@
    the provided failure-channel data
 
    t: Promise<log,val>"
-  ([e] (failure-rwpromise-result e {:monad.writer/output nil}))
+  ([e] (failure-rwpromise-result e {:promisefx.writer/output nil}))
 
   ([e failure-channel]
    (let [e (unwrap-exception e)
          has-failure-channel? (some? (some-> e
                                              ex-data
-                                             :monad.rwpromise/failure-channel))
+                                             :promisefx.rwpromise/failure-channel))
          ;; preserve original cause if we are given a wrapped exception
          cause (if has-failure-channel?
                  (.getCause e)
@@ -118,7 +118,7 @@
      (p/rejected
       (ex-info
        "RWPromise failure"
-       {:monad.rwpromise/failure-channel failure-channel
+       {:promisefx.rwpromise/failure-channel failure-channel
         :cause/data (ex-data cause)}
        cause)))))
 
@@ -143,11 +143,11 @@
        inner-ctx
        (rwpromise-mv
         m
-        (fn [{env :monad.reader/env}]
+        (fn [{env :promisefx.reader/env}]
 
           (p/handle
            (try
-             (runnable.p/-run outer-mv {:monad.reader/env env})
+             (runnable.p/-run outer-mv {:promisefx.reader/env env})
              (catch Exception e
                ;; (prn "catching 1" e)
                (failure-rwpromise-result e)))
@@ -155,8 +155,8 @@
              ;; (prn "handle1" [right left])
 
              (let [left? (some? left)
-                   {w :monad.writer/output
-                    v :monad/val} (if left?
+                   {w :promisefx.writer/output
+                    v :promisefx/val} (if left?
                                     (unwrap-failure-channel left)
                                     right)
                    ;; _ (prn "handle1-unwrapped" [w v])
@@ -178,7 +178,7 @@
 
                   (p/handle
                    (try
-                     (runnable.p/-run outer-mv' {:monad.reader/env env})
+                     (runnable.p/-run outer-mv' {:promisefx.reader/env env})
                      (catch Exception e
                        ;; (prn "catching 3" e)
                        (failure-rwpromise-result e)))
@@ -187,8 +187,8 @@
                      ;; (prn "handle2" [right' left'])
 
                      (let [left'? (some? left')
-                           {w' :monad.writer/output
-                            v' :monad/val} (if left'?
+                           {w' :promisefx.writer/output
+                            v' :promisefx/val} (if left'?
                                              (unwrap-failure-channel left')
                                              right')
 
@@ -200,10 +200,10 @@
                        (if left'?
                          (failure-rwpromise-result
                           left'
-                          {:monad.writer/output w''})
+                          {:promisefx.writer/output w''})
 
-                         {:monad.writer/output w''
-                          :monad/val (if discard-val? v v')}))))))))))))))))
+                         {:promisefx.writer/output w''
+                          :promisefx/val (if discard-val? v v')}))))))))))))))))
 
 (deftype RWPromiseTCtx [output-ctx inner-ctx]
   ctx.p/Context
@@ -264,16 +264,16 @@
      inner-ctx
      (rwpromise-mv
       m
-      (fn [{env :monad.reader/env}]
-        {:monad.writer/output nil
-         :monad/val env}))))
+      (fn [{env :promisefx.reader/env}]
+        {:promisefx.writer/output nil
+         :promisefx/val env}))))
   (-local [m f mv]
     (m.p/-return
      inner-ctx
      (rwpromise-mv
       m
-      (fn [{env :monad.reader/env}]
-        (runnable.p/-run mv {:monad.reader/env (f env)})))))
+      (fn [{env :promisefx.reader/env}]
+        (runnable.p/-run mv {:promisefx.reader/env (f env)})))))
 
   m.w.p/MonadWriter
   (-tell [m v]
@@ -281,28 +281,28 @@
      inner-ctx
      (rwpromise-mv
       m
-      (fn [{_env :monad.reader/env}]
-        {:monad.writer/output (monoid/mappend output-ctx nil v)}))))
+      (fn [{_env :promisefx.reader/env}]
+        {:promisefx.writer/output (monoid/mappend output-ctx nil v)}))))
   (-listen [m mv]
     (m.p/-return
      inner-ctx
      (rwpromise-mv
       m
-      (fn [{env :monad.reader/env}]
-        (let [{w :monad.writer/output
-               :as lv} (runnable.p/-run mv {:monad.reader/env env})]
-          {:monad.writer/output w
-           :monad/val lv})))))
+      (fn [{env :promisefx.reader/env}]
+        (let [{w :promisefx.writer/output
+               :as lv} (runnable.p/-run mv {:promisefx.reader/env env})]
+          {:promisefx.writer/output w
+           :promisefx/val lv})))))
   (-pass [m mv]
     (m.p/-return
      inner-ctx
      (rwpromise-mv
       m
-      (fn [{env :monad.reader/env}]
-        (let [{w :monad.writer/output
-               [val f] :monad/val} (runnable.p/-run mv {:monad.reader/env env})]
-          {:monad.writer/output (f w)
-           :monad/val val}))))))
+      (fn [{env :promisefx.reader/env}]
+        (let [{w :promisefx.writer/output
+               [val f] :promisefx/val} (runnable.p/-run mv {:promisefx.reader/env env})]
+          {:promisefx.writer/output (f w)
+           :promisefx/val val}))))))
 
 (def ctx
   (->RWPromiseTCtx
@@ -331,6 +331,6 @@
                     rwp/rwpromise-ctx
                     (inc a)))))
 
-  @(r/run mv2 {:monad.reader/env 10})
+  @(r/run mv2 {:promisefx.reader/env 10})
 
   )

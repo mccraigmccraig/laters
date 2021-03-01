@@ -23,7 +23,7 @@
   m.p/Monad
   (-bind [m mv f]
     (let [mv' (f mv)
-          mv'-tag (tagged.p/-get-tag (ctx.p/-get-context mv'))]
+          mv'-tag (tagged.p/-get-tag mv')]
       (if (= t mv'-tag)
         mv'
         (lifter/lift lifter t mv'-tag mv'))))

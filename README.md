@@ -60,9 +60,9 @@ these effects are made available in the following contexts:
 * values in the RWSX context are functions returning writer output, and updated state and a value as a map
 
 ```
-{:monad/val <value>
- :monad.writer/output <output>
- :monad.state/state <updated-state>}
+{:promisefx/val <value>
+ :promisefx.writer/output <output>
+ :promisefx.state/state <updated-state>}
 ```
 
 ### RWSPromise context
@@ -70,9 +70,9 @@ these effects are made available in the following contexts:
 * values in the RWSPromise context are functions returning a promise of writer output, updated state and a value,
 
 ```
-Promise<{:monad/val <value>
-         :monad.writer/output <output>
-         :monad.state/state <updated-state>}>
+Promise<{:promisefx/val <value>
+         :promisefx.writer/output <output>
+         :promisefx.state/state <updated-state>}>
 ```
 
 

@@ -38,16 +38,16 @@
   (rwexception-val
    ctx
    (fn [_]
-     {:monad.writer/output nil
-      :monad/val v})))
+     {:promisefx.writer/output nil
+      :promisefx/val v})))
 
 (defn error-rw-exception-body
   ([ctx e] (error-rw-exception-body ctx nil e))
   ([ctx output e]
    (merge
-    {:monad.writer/output nil}
+    {:promisefx.writer/output nil}
     output
-    {:monad/val (s.f/failure ctx e)})))
+    {:promisefx/val (s.f/failure ctx e)})))
 
 (defn error-rwexception-val
   ([ctx e] (error-rwexception-val ctx nil e))
@@ -73,14 +73,14 @@
        inner-ctx
        (rwexception-val
         m
-        (fn [{env :monad.reader/env}]
+        (fn [{env :promisefx.reader/env}]
 
           (try
-            (let [{w :monad.writer/output
-                   v :monad/val} (try
+            (let [{w :promisefx.writer/output
+                   v :promisefx/val} (try
                                    (runnable.p/-run
                                     outer-mv
-                                    {:monad.reader/env env})
+                                    {:promisefx.reader/env env})
                                    (catch Exception e
                                      ;; catch and thread errors forward
                                      (error-rw-exception-body outer-ctx e)))
@@ -95,7 +95,7 @@
                                 ;; catch and thread errors forward
                                 (error-rwexception-val
                                  outer-ctx
-                                 {:monad.writer/output (monoid/mappend
+                                 {:promisefx.writer/output (monoid/mappend
                                                         output-ctx
                                                         nil
                                                         w)}
@@ -108,26 +108,26 @@
                    (fn outer-mf' [outer-mv']
                      (assert (rwexception-val? outer-mv'))
 
-                     (let [{w' :monad.writer/output
-                            v' :monad/val} (try
+                     (let [{w' :promisefx.writer/output
+                            v' :promisefx/val} (try
                                              (runnable.p/-run
                                               outer-mv'
-                                              {:monad.reader/env env})
+                                              {:promisefx.reader/env env})
                                              (catch Exception e
                                                ;; catch and thread errors forward
                                                (error-rw-exception-body
                                                 outer-ctx
-                                                {:monad.writer/output (monoid/mappend
+                                                {:promisefx.writer/output (monoid/mappend
                                                                        output-ctx
                                                                        nil
                                                                        w)}
                                                 e)))]
-                       {:monad.writer/output (monoid/mappend
+                       {:promisefx.writer/output (monoid/mappend
                                               output-ctx
                                               nil
                                               w
                                               w')
-                        :monad/val (if discard-val? v v')}))))
+                        :promisefx/val (if discard-val? v v')}))))
             (catch Exception e
               ;; final fallback
               (error-rw-exception-body outer-ctx e)))))))))
@@ -195,16 +195,16 @@
      inner-ctx
      (rwexception-val
       m
-      (fn [{env :monad.reader/env}]
-        {:monad.writer/output nil
-         :monad/val env}))))
+      (fn [{env :promisefx.reader/env}]
+        {:promisefx.writer/output nil
+         :promisefx/val env}))))
   (-local [m f mv]
     (m.p/-return
      inner-ctx
      (rwexception-val
       m
-      (fn [{env :monad.reader/env}]
-        (runnable.p/-run mv {:monad.reader/env (f env)})))))
+      (fn [{env :promisefx.reader/env}]
+        (runnable.p/-run mv {:promisefx.reader/env (f env)})))))
 
   m.w.p/MonadWriter
   (-tell [m v]
@@ -212,28 +212,28 @@
      inner-ctx
      (rwexception-val
       m
-      (fn [{env :monad.reader/env}]
-        {:monad.writer/output (monoid/mappend output-ctx nil v)}))))
+      (fn [{env :promisefx.reader/env}]
+        {:promisefx.writer/output (monoid/mappend output-ctx nil v)}))))
   (-listen [m mv]
     (m.p/-return
      inner-ctx
      (rwexception-val
       m
-      (fn [{env :monad.reader/env}]
-        (let [{w :monad.writer/output
-               :as lv} (runnable.p/-run mv {:monad.reader/env env})]
-          {:monad.writer/output w
-           :monad/val lv})))))
+      (fn [{env :promisefx.reader/env}]
+        (let [{w :promisefx.writer/output
+               :as lv} (runnable.p/-run mv {:promisefx.reader/env env})]
+          {:promisefx.writer/output w
+           :promisefx/val lv})))))
   (-pass [m mv]
     (m.p/-return
      inner-ctx
      (rwexception-val
       m
-      (fn [{env :monad.reader/env}]
-        (let [{w :monad.writer/output
-               [val f] :monad/val} (runnable.p/-run mv {:monad.reader/env env})]
-          {:monad.writer/output (f w)
-           :monad/val val}))))))
+      (fn [{env :promisefx.reader/env}]
+        (let [{w :promisefx.writer/output
+               [val f] :promisefx/val} (runnable.p/-run mv {:promisefx.reader/env env})]
+          {:promisefx.writer/output (f w)
+           :promisefx/val val}))))))
 
 (def ctx
   (->RWExceptionTCtx
@@ -287,25 +287,25 @@
   ;; and you can log in handle, catch and finally
 
   (r/run (handle-stuff 100)
-    {:monad.reader/env {:config/offset 100}})
+    {:promisefx.reader/env {:config/offset 100}})
 
   =>
 
-  {:monad.writer/output {:base [100],
+  {:promisefx.writer/output {:base [100],
                          :config/offset [100],
                          :total [200],
                          :ex [:none]},
-   :monad/val 200}
+   :promisefx/val 200}
 
   ;; here's how an error gets caught/handled
 
   (r/run (handle-stuff 100)
-    {:monad.reader/env {:config/offset :foo}})
+    {:promisefx.reader/env {:config/offset :foo}})
 
-  {:monad.writer/output {:base [100],
+  {:promisefx.writer/output {:base [100],
                          :config/offset [:foo],
                          :ex [:handled]},
-   :monad/val "class clojure.lang.Keyword cannot be cast to class java.lang.Number (clojure.lang.Keyword is in unnamed module of loader 'app'; java.lang.Number is in module java.base of loader 'bootstrap')"}
+   :promisefx/val "class clojure.lang.Keyword cannot be cast to class java.lang.Number (clojure.lang.Keyword is in unnamed module of loader 'app'; java.lang.Number is in module java.base of loader 'bootstrap')"}
 
 
   (r/run
@@ -313,15 +313,15 @@
       (e/finally
         (stuff 100)
         (fn [] (prn "finally") (writer/tell [:ex :finally]))))
-    {:monad.reader/env {:config/offset 100}})
+    {:promisefx.reader/env {:config/offset 100}})
 
   =>
 
-  {:monad.writer/output
+  {:promisefx.writer/output
    {:base [100],
     :config/offset [100],
     :total [200],
     :ex [:finally :caught]},
-   :monad/val "boo"}
+   :promisefx/val "boo"}
 
    )

@@ -14,8 +14,8 @@
 
 (deftest PRWS-ctx-test
   (testing "return"
-    (is (= {:monad.writer/output nil
-            :monad/val :foo}
+    (is (= {:promisefx.writer/output nil
+            :promisefx/val :foo}
 
            (-> (m/return sut/ctx :foo)
                (r/run)
@@ -23,8 +23,8 @@
 
   (testing "bind"
     (m/with-context sut/ctx
-      (is (= {:monad.writer/output nil
-              :monad/val 101}
+      (is (= {:promisefx.writer/output nil
+              :promisefx/val 101}
 
              (-> (m/return 100)
                  (m/bind (fn [v] (m/return (inc v))))
@@ -33,8 +33,8 @@
 
   (testing "bind-catch"
     (m/with-context sut/ctx
-      (is (= {:monad.writer/output nil
-              :monad/val 51}
+      (is (= {:promisefx.writer/output nil
+              :promisefx/val 51}
 
              (-> (m/return 100)
                  (m/bind (fn [_v] (throw (ex-info "boo" {:x 50}))))
@@ -48,8 +48,8 @@
 
   (testing "run-catch"
     (m/with-context sut/ctx
-      (is (= {:monad.writer/output nil
-              :monad/val 51}
+      (is (= {:promisefx.writer/output nil
+              :promisefx/val 51}
 
              (-> (m/return 100)
                  (m/bind (fn [_v]
@@ -103,7 +103,7 @@
      (catch Exception e#
        ;; we corall an error into being a marker value
        ;; for simple test flow - errors are now just values
-       {:monad/val (failure e#)})))
+       {:promisefx/val (failure e#)})))
 
 (defn run-deref
   [mv arg]
@@ -113,8 +113,8 @@
 
 (defn run-compare-vals
   [[mva mvb] expected-val]
-  (let [[{a-val :monad/val}
-         {b-val :monad/val}] (map #(run-deref % {:monad.reader/env :foo}) [mva mvb])]
+  (let [[{a-val :promisefx/val}
+         {b-val :promisefx/val}] (map #(run-deref % {:promisefx.reader/env :foo}) [mva mvb])]
     (is (= expected-val a-val))
     (is (= a-val b-val))))
 
