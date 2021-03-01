@@ -4,34 +4,9 @@
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.fx.error.protocols :as err.p]
    [promisefx.data.extractable.protocols :as extractable.p]
+   [promisefx.data.success-failure :as s.f]
    [promisefx.control.identity :as ctrl.id]
    [promisefx.control.tagged :as ctrl.tag]))
-
-(defrecord Success [ctx v]
-  ctx.p/Contextual
-  (-get-context [_] ctx)
-  extractable.p/Extract
-  (-extract [_] v))
-
-(defn success [ctx v]
-  (->Success ctx v))
-
-(defn success?
-  [v]
-  (instance? Success v))
-
-(defrecord Failure [ctx e]
-  ctx.p/Contextual
-  (-get-context [_] ctx)
-  extractable.p/Extract
-  (-extract [_] e))
-
-(defn failure [ctx e]
-  (->Failure ctx e))
-
-(defn failure?
-  [v]
-  (instance? Failure v))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ExceptionTCtx
@@ -57,30 +32,30 @@
      (fn [mv]
        (try
          (cond
-           (success? mv) (f (extractable.p/-extract mv))
-           (failure? mv) (m.p/-return inner-ctx mv)
+           (s.f/success? mv) (f (extractable.p/-extract mv))
+           (s.f/failure? mv) (m.p/-return inner-ctx mv)
            :else (m.p/-return
                   inner-ctx
-                  (failure
+                  (s.f/failure
                    (ex-info "illegal mv" {:mv mv}))))
          (catch Exception e
-           (m.p/-return inner-ctx (failure m e)))))))
+           (m.p/-return inner-ctx (s.f/failure m e)))))))
   (-return [m v]
-    (m.p/-return inner-ctx (success m v)))
+    (m.p/-return inner-ctx (s.f/success m v)))
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx (failure m v)))
+    (m.p/-return inner-ctx (s.f/failure m v)))
   (-catch [m mv f]
     (m.p/-bind
      inner-ctx
      mv
      (fn [mv]
-       (if (failure? mv)
+       (if (s.f/failure? mv)
          (try
            (f (extractable.p/-extract mv))
            (catch Exception e
-             (m.p/-return inner-ctx (failure m e))))
+             (m.p/-return inner-ctx (s.f/failure m e))))
          (m.p/-return inner-ctx mv)))))
   (-finally [m mv f]
     mv))
