@@ -24,6 +24,12 @@ the error effect provides uniform error behaviour in different contexts without 
 
 the error effect does not impact any other effects. e.g. if an error is thrown in a computation which also has a writer effect, then the error will not cause any of the writer log (which has already been written) to be lost. it may cause some entries which have not yet been written to never be written, but nothing which has already been written will be lost
 
+#### interface
+
+* `(throw e)` thow an error - you can also use a regular clojure `throw`
+* `(catch (fn [e] ...))` catch an error - you can't (in general) use a regular clojure `catch`
+* `(handle (fn [failure success] ...))` handle both sucess and failure with a 2-arity handler
+
 #### things you might use an error effect for
 * uniform error handling behaviour across sync and async contexts
 
@@ -48,6 +54,12 @@ the error effect does not impact any other effects. e.g. if an error is thrown i
 ### reader effect
 
 the reader effect allows functions to access a shared environment without having to add it to every function signature
+
+#### interface
+
+* `(ask)` return the environment value
+* `(asks f)` return the environment value modified by `f`
+* `(local f mv)`  run `mv` with an environment modified by `f`
 
 #### things you might put in a reader environment:
 * http clients, db clients and other IOC dependencies
@@ -78,6 +90,12 @@ the reader effect allows functions to access a shared environment without having
 ### writer effect
 
 the writer effect allows functions to write to an append-only log without needing to manage the logged values in function results
+
+#### interface
+
+* `(tell v)` write the value
+* `(listen mv)` execute `mv` and return a pair of `[value output]``
+* `(pass mv)`
 
 #### things you might use a writer effect for:
 * logging
@@ -120,6 +138,13 @@ the writer effect allows functions to write to an append-only log without needin
 ### state effect
 
 the state effect allows functions to access and modify a state value without needing to account for it in function signatures or results
+
+#### interface
+
+* `(get)` get the state value
+* `(put)` put the state value
+* `(gets f)` get the state value and apply f
+* `(swap f)` update the state value with f, returing the old value
 
 #### things you might use a state effect for:
 * building an app-context map
