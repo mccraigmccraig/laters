@@ -57,14 +57,12 @@ the reader effect allows functions to access a shared environment without having
 (defn fetch-widget
   [id]
   (m/mlet [http (reader/asks :http/client)
-           :let [url (str "http://widgets.com/" id)]
-           _ (writer/tell [:http [:GET url]])_]
+           :let [url (str "https://foo.com/widgets/" id)]]
     (GET http url)))
 
 (defn save-widget
   [widget]
-  (m/mlet [db (reader/asks :db/client)
-           _ (writer/tell [:db [:INSERT widget]])]
+  (m/mlet [db (reader/asks :db/client)]
     (db/insert db widget)))
 
 
@@ -74,9 +72,7 @@ the reader effect allows functions to access a shared environment without having
             :db/client <db-client>}))
 
 ;; =>
-;; {:promisefx/val <widget>
-;;  :promisefx.writer/output {:http [[:GET "http://widgets.com/foo"]]
-;;                            :db [[:INSERT {:id "foo"}]]}}
+;; {:promisefx/val <widget>}
 ```
 
 ### writer effect
@@ -127,6 +123,29 @@ the state effect allows functions to access and modify a state value without nee
 
 #### things you might use a state effect for:
 * building an app-context map
+* accumulating state in a multi-step process
+
+```clojure
+(defn fetch-user
+  [id]
+  (m/mlet [http (reader/asks :http/client)
+           :let [url (str "https://foo.com/users/" id)]]
+    (GET http url)))
+
+(defn fetch-user-widgets
+  [{id :id :as user}]
+  (m/mlet [http (reader/asks :http/client)
+           :let [url (str "https://foo.com/users/" id "/widgets")]]
+    (GET http url)))
+
+(defn fetch-user-and-widgets
+  [user-id]
+  (m/mlet [user (fetch-user user-id)
+           _ (state/swap assoc :user user)
+           widgets (fetch-user-widgets user)
+           _ (state/swap assoc :widgets widgets)_]
+     (state/get)))
+```
 
 ## contexts
 
