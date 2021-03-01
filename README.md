@@ -27,14 +27,19 @@ the error effect does not impact any other effects. e.g. if an error is thrown i
 ```clojure
 (defn inc-it
   [v]
-  (m/mlet [_ (w/tell [:op :inc])]
+  (m/mlet [_ (w/tell [:inc v])]
     (m/return (inc v))))
 
 (-> (m/return 100)
     (m/bind inc-it)
     ;; this throw will not affect the logged output
     (m/bind (fn [v] (throw (ex-info "boo" {:v v}))))
-    (err/catch (fn [e] (m/return (-> e ex-data :v)))))
+    (err/catch (fn [e] (m/return (-> e ex-data :v))))
+    (r/run {}))
+
+;; =>
+;; {:promise/val 101
+;;  :promise.writer [[:inc 100]]}
 ```
 
 ### reader effect
@@ -45,7 +50,7 @@ the reader effect allows functions to access a shared environment without having
 (defn fetch-widget
   [id]
   (m/mlet [http (reader/asks :http/client)
-           :let [url "http://widgets.com/id"]
+           :let [url (str "http://widgets.com/" id)]
            _ (w/tell [:http [:GET url]])_]
     (GET http url)))
 
@@ -57,7 +62,14 @@ the reader effect allows functions to access a shared environment without having
 
 
 (-> (get-widget "foo")
-    (save-widget))
+    (save-widget)
+    (r/run {:http/client <http-client>
+            :db/client <db-client>}))
+
+;; =>
+;; {:promisefx/val <widget>
+;;  :promisefx.writer/output {:http [[:GET "http://widgets.com/foo"]]
+;;                            :db [[:INSERT {:id "foo"}]]}}
 ```
 
 ### writer effect
