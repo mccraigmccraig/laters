@@ -41,6 +41,25 @@ the error effect does not impact any other effects. e.g. if an error is thrown i
 
 the reader effect allows functions to access a shared environment without having to add it to every function signature
 
+```clojure
+(defn fetch-widget
+  [id]
+  (m/mlet [http (reader/asks :http/client)
+           :let [url "http://widgets.com/id"]
+           _ (w/tell [:http [:GET url]])_]
+    (GET http url)))
+
+(defn save-widget
+  [widget]
+  (m/mlet [db (reader/asks :db/client)
+           _ (w/tell [:db [:INSERT widget]])]
+    (db/insert db widget)))
+
+
+(-> (get-widget "foo")
+    (save-widget))
+```
+
 ### writer effect
 
 the writer effect allows functions to write to an append-only log without needing to manage the logged values in function results
