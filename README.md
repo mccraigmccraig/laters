@@ -143,8 +143,17 @@ the state effect allows functions to access and modify a state value without nee
   (m/mlet [user (fetch-user user-id)
            _ (state/swap assoc :user user)
            widgets (fetch-user-widgets user)
-           _ (state/swap assoc :widgets widgets)_]
+           _ (state/swap assoc :widgets widgets)]
      (state/get)))
+
+(-> (m/return 100)
+    (m/bind fetch-user-and-widets)
+    (r/run {:http/client <http-client>>}))
+
+;;=>
+;; {:user {:id 100 :name "mr. foo mcfoo"
+;;  :widgets [{:user_id 100 :widget_id 1 :name "poker"}
+;;            {:user_id 100 :widget_id 2 :name "scraper"}]}}
 ```
 
 ## contexts
