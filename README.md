@@ -85,29 +85,40 @@ the writer effect allows functions to write to an append-only log without needin
 
 #### things you might use a writer effect for:
 * logging
-* re-frame like effect data
+* accumulating re-frame like effect data
 
 ```clojure
-(defn foo
-  [id]
-  (m/mlet [_ (writer/tell [:foo id])
-    (return (str "foo:" id))]))
+(defn user-welcome-email
+  [{email :email name :name :as user}]
+  (m/mlet [_ (writer/tell [:send-email {:to email
+                                        :subject "welcome"
+                                        :body (str "hi " name)}])
+    (m/return user])))
 
-(defn bar
-  [id]
-  (m/mlet [_ (wrtier/tell [:bar id])
-    (return (str "bar:" id))]))
+(defn user-db-record
+  [user]
+  (m/mlet [_ (writer/tell [:db-change [:users [nil user]]])
+    (m/return user)]))
 
-(r/run
-    (m/mlet [a (foo 100)
-             b (bar 25)]
-      (m/return [a b]))
-    {})
+(defn create-user
+  [user]
+  (m/mlet [_ (user-welcome-email user)
+           _ (user-db-record user)]
+    (m/return user)))
+
+
+(-> (m/return {:id 100 :email "foo@foo.com" :name "mr. foo mcfoo"})
+    (m/bind create-user)
+    (r/run {}))
 
 ;; =>
-;; {:promisefx/val ["foo:100" "bar:wt"]
-    :promisefx.writer/output {:foo [100]
-                              :bar [25]}}
+;; {:promisefx/val {:id 100 :email "foo@foo.com" :name "mr. foo mcfoo"}
+    :promisefx.writer/output {:send-email [{:to "foo@foo.com"
+                                            :subject "welcome"
+                                            :body "hi mr. foo mcfoo"}]
+                              :db-change [:users [nil {:id 100
+                                                       :email "foo@foo.com"
+                                                       :name "mr. foo mcfoo"}]]}}
 ```
 
 ### state effect
