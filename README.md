@@ -169,11 +169,13 @@ these effects are made available in the following contexts:
 
 * values in the exception context are either Success or Failure records
 * any exception thrown will be caught and wrapped in a Failure
+* this is the default context for any value which doesn't otherwise identify a context
 
 ### promise context
 
 * values in the promise context are promises
 * any exception thrown will be caught and wrapped in a failed promise
+* this is the default context for promises and deferreds
 
 ### RWSX context
 
@@ -197,7 +199,10 @@ Promise<{:promisefx/val <value>
 ```
 * any exception throw will be caught and wrapped in a failed promise
 
-## Usage
+## Lifting
+
+all of the above contexts will attempt to lift any value returned to them by a bind function - this may not always
+be successful
 
 
 ## License
