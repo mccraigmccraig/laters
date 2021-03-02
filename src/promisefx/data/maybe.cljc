@@ -1,9 +1,11 @@
 (ns promisefx.data.maybe
   (:require
    [promisefx.context.protocols :as ctx.p]
-   [promisefx.data.extractable.protocols :as extractable.p])
-  (:import
-   [promisefx.context.protocols Context]))
+   [promisefx.data.extractable.protocols :as extractable.p]
+   #?(:cljs [promisefx.context.protocols :refer [Context]]))
+  #?(:clj
+     (:import
+      [promisefx.context.protocols Context])))
 
 (defrecord Just [^Context ctx v]
   ctx.p/Contextual

@@ -1,8 +1,10 @@
 (ns promisefx.context
   (:require
-   [promisefx.context.protocols :as p])
-  (:import
-   [promisefx.context.protocols Context Contextual]))
+   [promisefx.context.protocols :as p]
+   #?(:cljs [promisefx.context.protocols :refer [Context Contextual]]))
+  #?(:clj
+     (:import
+      [promisefx.context.protocols Context Contextual])))
 
 (defn get-context
   [^Contextual v]

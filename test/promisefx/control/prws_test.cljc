@@ -9,8 +9,9 @@
    [promisefx.fx.error :as error]
    [promisefx.fx.error-test :as err.t]
    [promisefx.fx.monad-test :as m.t])
-  (:import
-   [java.io Writer]))
+  #?(:clj
+     (:import
+      [java.io Writer])))
 
 (deftest PRWS-ctx-test
   (testing "return"
@@ -85,7 +86,7 @@
       ;; (= (ex-data e) (ex-data (.-e b)))
       ))))
 
-(defmethod clojure.core/print-method PRWSFailure [f ^Writer w]
+(defmethod clojure.core/print-method PRWSFailure [f #?(:clj ^Writer) w]
   (let [e (.-e f)]
     (.write w "<< PRWSFailure: ")
     (.write w (prn-str e))
