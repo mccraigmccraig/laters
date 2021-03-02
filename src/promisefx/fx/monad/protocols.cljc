@@ -1,4 +1,4 @@
-(ns promisefx.fx.monad.protocols)
+(ns ^:no-doc promisefx.fx.monad.protocols)
 
 (defprotocol Monad
   (-bind [m mv f])

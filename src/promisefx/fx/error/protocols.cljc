@@ -1,4 +1,4 @@
-(ns promisefx.fx.error.protocols)
+(ns ^:no-doc promisefx.fx.error.protocols)
 
 (defprotocol MonadError
   (-reject [m v])

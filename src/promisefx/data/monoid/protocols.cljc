@@ -1,4 +1,4 @@
-(ns promisefx.data.monoid.protocols)
+(ns ^:no-doc promisefx.data.monoid.protocols)
 
 (defprotocol Semigroup
   "A structure with an associative binary operation."

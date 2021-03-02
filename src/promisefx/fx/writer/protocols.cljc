@@ -1,4 +1,4 @@
-(ns promisefx.fx.writer.protocols)
+(ns ^:no-doc promisefx.fx.writer.protocols)
 
 (defprotocol MonadWriter
   (-tell [m v])

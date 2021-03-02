@@ -1,4 +1,4 @@
-(ns promisefx.data.tagged.protocols)
+(ns ^:no-doc promisefx.data.tagged.protocols)
 
 (defprotocol Tagged
   (-get-tag [_]))

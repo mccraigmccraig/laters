@@ -1,4 +1,4 @@
-(ns promisefx.data.extractable.protocols)
+(ns ^:no-doc promisefx.data.extractable.protocols)
 
 (defprotocol Extract
   (-extract [_]

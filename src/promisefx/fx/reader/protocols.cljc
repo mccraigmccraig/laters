@@ -1,4 +1,4 @@
-(ns promisefx.fx.reader.protocols)
+(ns ^:no-doc promisefx.fx.reader.protocols)
 
 (defprotocol MonadReader
   (-ask [m])

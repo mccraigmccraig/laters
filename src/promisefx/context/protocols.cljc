@@ -1,4 +1,4 @@
-(ns promisefx.context.protocols)
+(ns ^:no-doc promisefx.context.protocols)
 
 (defprotocol Context
   (-get-tag [_]))

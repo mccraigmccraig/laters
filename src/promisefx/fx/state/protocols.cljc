@@ -1,4 +1,4 @@
-(ns promisefx.fx.state.protocols)
+(ns ^:no-doc promisefx.fx.state.protocols)
 
 (defprotocol MonadState
   (-get-state [m])
