@@ -1,8 +1,6 @@
 (ns promisefx.context.lifter
   (:require
-   [promisefx.context.protocols :as p])
-  (:import
-   [clojure.lang IFn]))
+   [promisefx.context.protocols :as p]))
 
 (defn lifter?
   [l]
