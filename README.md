@@ -51,8 +51,8 @@ e.g. this example will work unchanged in either of the synchronous RWSX or async
     (r/run {}))
 
 ;; =>
-;; {:promise/val 101
-;;  :promise.writer [[:inc 100]]}
+;; {:promisefx/val 101
+;;  :promisefx.writer/output [[:inc 100]]}
 ```
 
 ### reader effect
@@ -180,9 +180,12 @@ the state effect allows functions to access and modify a state value without nee
     (r/run {:http/client <http-client>>}))
 
 ;;=>
-;; {:user {:id 100 :name "mr. foo mcfoo"
-;;  :widgets [{:user_id 100 :widget_id 1 :name "poker"}
-;;            {:user_id 100 :widget_id 2 :name "scraper"}]}}
+;; {:promisefx/val {:user {:id 100 :name "mr. foo mcfoo"
+;;                  :widgets [{:user_id 100 :widget_id 1 :name "poker"}
+;;                            {:user_id 100 :widget_id 2 :name "scraper"}]}}
+;;  :promisefx.state/state {:user {:id 100 :name "mr. foo mcfoo"
+;;                          :widgets [{:user_id 100 :widget_id 1 :name "poker"}
+;;                                    {:user_id 100 :widget_id 2 :name "scraper"}]}}}
 ```
 
 ## contexts
