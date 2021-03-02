@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>mccraigmccraig</groupId>
   <artifactId>promisefx</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.1.1-SNAPSHOT</version>
   <name>promisefx</name>
   <description>promisefx - some clojure/script effects</description>
   <url>https://github.com/mccraigmccraig/promisefx</url>
@@ -30,6 +30,11 @@
       <artifactId>clojure</artifactId>
       <version>1.10.1</version>
     </dependency>
+    <dependency>
+      <groupId>funcool</groupId>
+      <artifactId>promesa</artifactId>
+      <version>5.1.0</version>
+    </dependency>
   </dependencies>
   <build>
     <sourceDirectory>src</sourceDirectory>
@@ -38,10 +43,6 @@
     <repository>
       <id>clojars</id>
       <url>https://repo.clojars.org/</url>
-    </repository>
-    <repository>
-      <id>sonatype</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
     </repository>
   </repositories>
   <distributionManagement>
