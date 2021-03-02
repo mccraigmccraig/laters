@@ -45,8 +45,7 @@ e.g. this example will work unchanged in either of the synchronous RWSX or async
   (m/mlet [_ (writer/tell [:inc v])]
     (m/return (inc v))))
 
-(-> (m/return 100)
-    (m/bind inc-it)
+(-> (inc-it 100)
     ;; this throw will not affect the logged output
     (m/bind (fn [v] (throw (ex-info "boo" {:v v}))))
     (err/catch (fn [e] (m/return (-> e ex-data :v))))
@@ -85,7 +84,7 @@ the reader effect allows functions to access a shared environment without having
 
 
 (-> (get-widget "foo")
-    (save-widget)
+    (m/bind save-widget)
     (r/run {:http/client <http-client>
             :db/client <db-client>}))
 
@@ -127,8 +126,7 @@ the writer effect allows functions to write to an append-only log without needin
     (m/return user)))
 
 
-(-> (m/return {:id 100 :email "foo@foo.com" :name "mr. foo mcfoo"})
-    (m/bind create-user)
+(-> (create-user {:id 100 :email "foo@foo.com" :name "mr. foo mcfoo"})
     (r/run {}))
 
 ;; =>
@@ -177,8 +175,7 @@ the state effect allows functions to access and modify a state value without nee
            _ (state/swap assoc :widgets widgets)]
      (state/get)))
 
-(-> (m/return 100)
-    (m/bind fetch-user-and-widets)
+(-> (fetch-user-and-widets 100)
     (r/run {:http/client <http-client>>}))
 
 ;;=>
