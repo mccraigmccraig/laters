@@ -1,5 +1,7 @@
 # promisefx
 
+[![cljdoc badge](https://cljdoc.org/badge/mccraigmccraig/promisefx)](https://cljdoc.org/d/mccraigmccraig/promisefx/CURRENT)
+
 an exploration of some other ideas for effectful programming with
 clojure/script
 
