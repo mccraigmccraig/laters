@@ -79,7 +79,7 @@
                                    (runnable.p/-run
                                     outer-mv
                                     {:promisefx.reader/env env})
-                                   (catch Exception e
+                                   (catch #?(:clj Exception :cljs :default) e
                                      ;; catch and thread errors forward
                                      (failure-rwsx-body outer-ctx e)))
 
@@ -89,7 +89,7 @@
 
                   inner-mv' (try
                               (inner-2-mf left right)
-                              (catch Exception e
+                              (catch #?(:clj Exception :cljs :default) e
                                 ;; catch and thread errors forward
                                 (failure-rwsx-val
                                  outer-ctx
@@ -111,7 +111,7 @@
                                              (runnable.p/-run
                                               outer-mv'
                                               {:promisefx.reader/env env})
-                                             (catch Exception e
+                                             (catch #?(:clj Exception :cljs :default) e
                                                ;; catch and thread errors forward
                                                (failure-rwsx-body
                                                 outer-ctx
@@ -126,7 +126,7 @@
                                               w
                                               w')
                         :promisefx/val (if discard-val? v v')}))))
-            (catch Exception e
+            (catch #?(:clj Exception :cljs :default) e
               ;; final fallback
               (failure-rwsx-body outer-ctx e)))))))))
 

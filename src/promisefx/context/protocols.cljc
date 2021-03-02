@@ -4,7 +4,7 @@
   (-get-tag [_]))
 
 (defprotocol Contextual
-  (^Context -get-context [_]
+  (-get-context [_]
    "return the Context within which a value is being processed"))
 
 (defprotocol ILifter

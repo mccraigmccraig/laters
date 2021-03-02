@@ -1,12 +1,11 @@
 (ns promisefx.data.monoid
   (:require
    [promisefx.context.protocols :as ctx.p]
-   [promisefx.data.monoid.protocols :as monoid.p])
-  (:import
-   [clojure.lang
-    IPersistentList
-    IPersistentMap
-    IPersistentVector]))
+   [promisefx.data.monoid.protocols :as monoid.p]
+   #?(:cljs [cljs.core :refer [IList IVector IMap]]))
+  #?(:clj
+     (:import
+      [clojure.lang IPersistentList IPersistentMap IPersistentVector])))
 
 (defn mappend
   ([sv sv']
@@ -69,11 +68,11 @@
 (def vector-monoid-ctx (->VectorMonoidCtx))
 
 (extend-protocol ctx.p/Contextual
-  IPersistentMap
+  #?(:clj IPersistentMap :cljs IMap)
   (-get-context [_] map-monoid-ctx)
-  IPersistentVector
+  #?(:clj IPersistentVector :cljs IVector)
   (-get-context [_] vector-monoid-ctx)
-  IPersistentList
+  #?(:clj IPersistentList :cljs IList)
   (-get-context [_] list-monoid-ctx))
 
 (extend-protocol monoid.p/Semigroup

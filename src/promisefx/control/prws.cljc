@@ -12,21 +12,26 @@
    [promisefx.data.runnable.protocols :as runnable.p]
    [promisefx.data.monoid :as monoid]
    [promesa.core :as p])
-  (:import
-   [java.util.concurrent
-    ExecutionException
-    CompletionException]))
+  #?(:clj
+     (:import
+      [java.util.concurrent
+       ExecutionException
+       CompletionException])))
 
 (def ^:private exception-wrapper-classes
-  #{ExecutionException CompletionException})
+  #?(:clj #{ExecutionException CompletionException}
+     :cljs #{}))
+
+(defn platform-exception-wrapper?
+  [e]
+  #?(:clj (contains? exception-wrapper-classes (some-> e .getClass))
+     :cljs false))
 
 (defn unwrap-exception
   "remove j.u.c exception wrappers"
   [e]
-  (if (contains?
-       exception-wrapper-classes
-       (some-> e .getClass))
-    (.getCause e)
+  (if (platform-exception-wrapper? e)
+    (ex-cause e)
     e))
 
 ;; values are: <env> -> Promise<log,val>
@@ -84,7 +89,7 @@
                                             ex-data
                                             :promisefx.rwpromise/failure-channel))]
     (if has-failure-channel?
-      (.getCause e)
+      (ex-cause e)
       e)))
 
 (defn failure-rwpromise-result
@@ -110,7 +115,7 @@
                                              :promisefx.rwpromise/failure-channel))
          ;; preserve original cause if we are given a wrapped exception
          cause (if has-failure-channel?
-                 (.getCause e)
+                 (ex-cause e)
                  e)]
 
      ;; (prn "failure-rwpromise-result" e cause failure-channel)
@@ -148,7 +153,7 @@
           (p/handle
            (try
              (runnable.p/-run outer-mv {:promisefx.reader/env env})
-             (catch Exception e
+             (catch #?(:clj Exception :cljs :default) e
                ;; (prn "catching 1" e)
                (failure-rwpromise-result e)))
            (fn [right left]
@@ -165,7 +170,7 @@
                                (inner-2-mf
                                 (when left? (some-> left unwrap-cause))
                                 (when-not left? v))
-                               (catch Exception e
+                               (catch #?(:clj Exception :cljs :default) e
                                  ;; (prn "catching 2" e)
                                  (failure-rwpromise-mv inner-ctx e)))]
 
@@ -179,7 +184,7 @@
                   (p/handle
                    (try
                      (runnable.p/-run outer-mv' {:promisefx.reader/env env})
-                     (catch Exception e
+                     (catch #?(:clj Exception :cljs :default) e
                        ;; (prn "catching 3" e)
                        (failure-rwpromise-result e)))
 

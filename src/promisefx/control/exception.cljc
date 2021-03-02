@@ -37,8 +37,9 @@
            :else (m.p/-return
                   inner-ctx
                   (s.f/failure
+                   m
                    (ex-info "illegal mv" {:mv mv}))))
-         (catch Exception e
+         (catch #?(:clj Exception :cljs :default) e
            (m.p/-return inner-ctx (s.f/failure m e)))))))
   (-return [m v]
     (m.p/-return inner-ctx (s.f/success m v)))
@@ -54,7 +55,7 @@
        (if (s.f/failure? mv)
          (try
            (f (extractable.p/-extract mv))
-           (catch Exception e
+           (catch #?(:clj Exception :cljs :default) e
              (m.p/-return inner-ctx (s.f/failure m e))))
          (m.p/-return inner-ctx mv)))))
   (-finally [m mv f]
