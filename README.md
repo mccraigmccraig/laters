@@ -192,10 +192,10 @@ the state effect allows functions to access and modify a state value without nee
 
 these effects are made available in the following contexts:
 
-* exception - [error] - synchronous execution
-* promise - [error] - asynchronous execution
-* RWSX - [error, reader, writer, state] - synchronous execution
-* RWSPromise - [error, reader, writer, state] - asynchronous execution
+* exception - [error] - synchronous execution with an error effect
+* promise - [error] - asynchronous execution with an error effect
+* RWSX - [error, reader, writer, state] - synchronous execution with multiple effects
+* RWSPromise - [error, reader, writer, state] - asynchronous execution with multiple effects
 
 ### exception context
 
