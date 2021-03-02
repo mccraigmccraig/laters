@@ -4,34 +4,38 @@ an exploration of some other ideas for effectful programming with
 clojure/script
 
 effectful programming offers some useful ways of separating the what
-of some code from the how
+of some code concerns from the how
 
-promisefx came into being because some useful things from synchronous environments
-(e.g. stacktraces, thread-locals) are not available asynchronous environments,
-and i wanted some constructs which could solve the same problems without being
-dependent on the execution environment
+promisefx came into being while working with a promise-based asynchronous system,
+because some useful things from synchronous environments (e.g. stacktraces,
+thread-local context variables) are not available in asynchronous environments,
+making debugging, logging and tracing all harder
 
+promisefx implements some effects which can solve these problems without being
+dependent on any features of the execution environment beyond closures.
 it brings the following effects:
 
-* error - uniform error handling across different contexts
+* error - uniform error handling in different execution contexts
 * reader - an input-only effect
 * writer - an output-only effect
-* state - a modifiable state effect. i'm not even sure this should be here, but it's approximately free given the implementation, so why not
+* state - a modifiable state effect ()i'm not even sure this should be here, but it's approximately free given the implementations of the other effects, so why not)
 
 ### error effect
 
-the error effect provides uniform error behaviour in different contexts without impacting other effects. if an error is thrown, then the current computation will short-circuit until it either ends or the error is caught. if an exception is thrown in a context with an error effect then the exception is wrapped in a Failure and will behave as if an error were thrown
+the error effect provides uniform error behaviour in different contexts without impacting other effects. if an error is thrown, then the current computation will short-circuit until it either ends or the error is caught. if a vanilla exception is thrown in a context with an error effect then the exception is wrapped in a Failure and will behave as if an error-effect error were thrown
 
-the error effect does not impact any other effects. e.g. if an error is thrown in a computation which also has a writer effect, then the error will not cause any of the writer log (which has already been written) to be lost. it may cause some entries which have not yet been written to never be written, but nothing which has already been written will be lost
+the error effect does not impact other effects. e.g. if an error is thrown in a computation which also has a writer effect, then the error will not cause any of the writer log (which has already been written) to be lost. it may cause some entries which have not yet been written to never be written, but nothing which has already been written will be lost
 
 #### interface
 
-* `(throw e)` thow an error - you can also use a regular clojure `throw`
-* `(catch (fn [e] ...))` catch an error - you can't (in general) use a regular clojure `catch`
+* `(throw e)` thow an error - you can also use a regular clojure/script `throw`
+* `(catch (fn [e] ...))` catch an error - you can't (in general) use a regular clojure `catch` (e.g. because vanilla `catch` doesn't work in a promise-based context)
 * `(handle (fn [failure success] ...))` handle both sucess and failure with a 2-arity handler
 
 #### things you might use an error effect for
-* uniform error handling behaviour across sync and async contexts
+* helping your code to focus on its domain and be independent of the execution context
+
+e.g. this example will work unchanged in either of the synchronous RWSX or asynchronous RWSPromise contexts
 
 ```clojure
 (defn inc-it
