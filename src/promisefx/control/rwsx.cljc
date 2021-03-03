@@ -130,9 +130,9 @@
               ;; final fallback
               (failure-rwsx-body outer-ctx e)))))))))
 
-(deftype RWExceptionTCtx [output-ctx inner-ctx]
+(deftype RWExceptionTCtx [tag output-ctx inner-ctx]
   ctx.p/Context
-  (-get-tag [m] (ctx.p/-get-tag inner-ctx))
+  (-get-tag [m] tag)
   m.p/Monad
   (-bind [m inner-mv inner-mf]
     (rw-exception-t-bind-2
@@ -235,11 +235,13 @@
 
 (def ctx
   (->RWExceptionTCtx
+   [::RWExceptionT ::monoid/map ::ctrl.id/IdentityCtx]
    monoid/map-monoid-ctx
-   (ctrl.id/->IdentityCtx [::RWExceptionT ::monoid/map ::ctrl.id/IdentityCtx])))
+   (ctrl.id/->IdentityCtx)))
 
 (def tagged-ctx
   (->RWExceptionTCtx
+   [::RWExceptionT ::monoid/map ::ctrl.tag/TaggedCtx]
    monoid/map-monoid-ctx
    (ctrl.tag/->TaggedCtx [::RWExceptionT ::monoid/map ::ctrl.tag/TaggedCtx] nil)))
 

@@ -190,9 +190,9 @@
                          {:promisefx.writer/output w''
                           :promisefx/val (if discard-val? v v')}))))))))))))))))
 
-(deftype RWSPromiseTCtx [output-ctx inner-ctx]
+(deftype RWSPromiseTCtx [tag output-ctx inner-ctx]
   ctx.p/Context
-  (-get-tag [m] (ctx.p/-get-tag inner-ctx))
+  (-get-tag [m] tag)
   m.p/Monad
   (-bind [m inner-mv inner-mf]
     (rws-promise-t-bind-2
@@ -291,11 +291,13 @@
 
 (def ctx
   (->RWSPromiseTCtx
+   [::RWPromiseT ::monoid.map ::ctrl.id/identityCtx]
    monoid/map-monoid-ctx
-   (ctrl.id/->IdentityCtx [::RWPromiseT ::monoid.map ::ctrl.id/identityCtx])))
+   (ctrl.id/->IdentityCtx)))
 
 (def tagged-ctx
   (->RWSPromiseTCtx
+   [::RWPromiseT ::monoid.map ::ctrl.tagged/TaggedCtx]
    monoid/map-monoid-ctx
    (ctrl.tagged/->TaggedCtx [::RWPromiseT ::monoid.map ::ctrl.tagged/TaggedCtx] nil)))
 
