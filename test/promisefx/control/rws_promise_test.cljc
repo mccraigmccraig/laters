@@ -1,7 +1,6 @@
 (ns promisefx.control.rws-promise-test
   (:require
    [promisefx.control.rws-promise :as sut]
-   [clojure.test :as t ]
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
    [promisefx.fx.monad :as m]
