@@ -22,11 +22,10 @@
 
   m.p/Monad
   (-bind [m mv f]
-    (let [mv' (f mv)
-          mv'-tag (tagged.p/-get-tag mv')]
-      (if (= t mv'-tag)
-        mv'
-        (lifter/lift lifter t mv'-tag mv'))))
+    (let [mv-tag (tagged.p/-get-tag mv)]
+      (if (= t mv-tag)
+        (f mv)
+        (f (lifter/lift lifter t mv-tag mv)))))
   (-return [m v]
     v))
 

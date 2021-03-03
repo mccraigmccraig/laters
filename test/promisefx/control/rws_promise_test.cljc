@@ -174,3 +174,59 @@
         (err.t/run-associativity-test sut/ctx run-compare-vals m f g xv))))
   (testing "finally"
     ))
+
+
+(deftest tagged-ctx-monad-law-test
+  (testing "bind"
+    (testing "left-identity"
+
+      (doseq [[a mf xv] [[10 (fn [v] (m/return sut/tagged-ctx (inc v))) 11]
+                         (let [x (ex-info "boo" {})]
+                           [10 (fn [_v] (error/reject sut/tagged-ctx x)) (failure x) ])]]
+        (m.t/run-left-identity-test sut/tagged-ctx run-compare-vals a mf xv)))
+
+    (testing "right-identity"
+      (doseq [[mv xv] [[(sut/success-rws-promise-mv sut/tagged-ctx :foo) :foo]
+                       (let [x (ex-info "boo" {})]
+                         [(sut/failure-rws-promise-mv sut/tagged-ctx x)
+                          (failure x)])]]
+        (m.t/run-right-identity-test sut/tagged-ctx run-compare-vals mv xv)))
+
+    (testing "associativity"
+      (doseq [[m f g xv] [[(sut/success-rws-promise-mv sut/tagged-ctx "foo")
+                           #(m/return sut/tagged-ctx (str % "bar"))
+                           #(m/return sut/tagged-ctx (str % "baz"))
+                           "foobarbaz" ]
+                          (let [x (ex-info "boo" {})]
+                            [(sut/failure-rws-promise-mv sut/tagged-ctx x)
+                             #(m/return sut/tagged-ctx (str % "bar"))
+                             #(m/return sut/tagged-ctx (str % "baz"))
+                             (failure x)])]]
+        (m.t/run-associativity-test sut/tagged-ctx run-compare-vals m f g xv))))
+
+  (testing "catch"
+    (testing "left-identity"
+      (doseq [[a mf xv] (let [x (ex-info "boo" {})]
+                          [[x #(error/reject' sut/tagged-ctx %) (failure x)]
+                           [x #(m/return' sut/tagged-ctx %) x]])]
+        (err.t/run-left-identity-test sut/tagged-ctx run-compare-vals a mf xv)))
+
+    (testing "right-identity"
+      (doseq [[mv xv] (let [x (ex-info "boo" {})]
+                        [[(sut/failure-rws-promise-mv sut/tagged-ctx x) (failure x)]
+                         [(sut/success-rws-promise-mv sut/tagged-ctx :foo) :foo]])]
+        (err.t/run-right-identity-test sut/tagged-ctx run-compare-vals mv xv)))
+
+    (testing "associativity"
+      (doseq [[m f g xv] (let [x (ex-info "boo" {})]
+                           [[(sut/failure-rws-promise-mv sut/tagged-ctx x)
+                             (partial error/reject' sut/tagged-ctx)
+                             (partial error/reject' sut/tagged-ctx)
+                             (failure x)]
+                            [(sut/failure-rws-promise-mv sut/tagged-ctx x)
+                             (partial m/return' sut/tagged-ctx)
+                             (partial m/return' sut/tagged-ctx)
+                             x]])]
+        (err.t/run-associativity-test sut/tagged-ctx run-compare-vals m f g xv))))
+  (testing "finally"
+    ))
