@@ -8,6 +8,7 @@
    [promisefx.fx.writer.protocols :as m.w.p]
    [promisefx.control.identity :as ctrl.id]
    [promisefx.control.tagged :as ctrl.tagged]
+   [promisefx.data.tagged.protocols :as tagged.p]
    [promisefx.data.exception :as data.ex]
    [promisefx.data.extractable.protocols :as extractable.p]
    [promisefx.data.runnable.protocols :as runnable.p]
@@ -22,7 +23,10 @@
   (-extract [_] f)
   runnable.p/IRunnable
   (-run [_ arg]
-    (f arg)))
+    (f arg))
+  tagged.p/Tagged
+  (-get-tag [_]
+    (ctx.p/-get-tag ctx)))
 
 (defn rws-promise-mv
   [ctx f]
@@ -142,8 +146,8 @@
              (let [left? (some? left)
                    {w :promisefx.writer/output
                     v :promisefx/val} (if left?
-                                    (unwrap-failure-channel left)
-                                    right)
+                                        (unwrap-failure-channel left)
+                                        right)
                    ;; _ (prn "handle1-unwrapped" [w v])
 
                    inner-mv' (try
@@ -174,8 +178,8 @@
                      (let [left'? (some? left')
                            {w' :promisefx.writer/output
                             v' :promisefx/val} (if left'?
-                                             (unwrap-failure-channel left')
-                                             right')
+                                                 (unwrap-failure-channel left')
+                                                 right')
 
                            w'' (monoid/mappend output-ctx w w')]
                        ;; _ (prn "handle2-unwrapped" [w' v' w''])
