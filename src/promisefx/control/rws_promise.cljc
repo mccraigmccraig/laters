@@ -1,4 +1,4 @@
-(ns promisefx.control.prws
+(ns promisefx.control.rws-promise
   (:require
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.context.protocols :as ctx.p]
@@ -34,8 +34,8 @@
     (ex-cause e)
     e))
 
-;; values are: <env> -> Promise<log,val>
-(defrecord RWPromiseMV [ctx f]
+;; values are: <env,state> -> Promise<log,state,val>
+(defrecord RWSPromiseMV [ctx f]
   ctx.p/Contextual
   (-get-context [_] ctx)
   extractable.p/Extract
@@ -44,17 +44,17 @@
   (-run [_ arg]
     (f arg)))
 
-(defn rwpromise-mv
+(defn rws-promise-mv
   [ctx f]
-  (->RWPromiseMV ctx f))
+  (->RWSPromiseMV ctx f))
 
-(defn rwpromise-mv?
+(defn rws-promise-mv?
   [v]
-  (instance? RWPromiseMV v))
+  (instance? RWSPromiseMV v))
 
-(defn success-rwpromise-mv
+(defn success-rws-promise-mv
   [ctx v]
-  (rwpromise-mv
+  (rws-promise-mv
    ctx
    (fn [_]
      (p/resolved
@@ -92,7 +92,7 @@
       (ex-cause e)
       e)))
 
-(defn failure-rwpromise-result
+(defn failure-rws-promise-result
   "take an exception and some failure-channel data, and return
    a Promise of failure... which is an ex-info holding the failure
    channel data
@@ -106,7 +106,7 @@
    the provided failure-channel data
 
    t: Promise<log,val>"
-  ([e] (failure-rwpromise-result e {:promisefx.writer/output nil}))
+  ([e] (failure-rws-promise-result e {:promisefx.writer/output nil}))
 
   ([e failure-channel]
    (let [e (unwrap-exception e)
@@ -118,7 +118,7 @@
                  (ex-cause e)
                  e)]
 
-     ;; (prn "failure-rwpromise-result" e cause failure-channel)
+     ;; (prn "failure-rws-promise-result" e cause failure-channel)
 
      (p/rejected
       (ex-info
@@ -127,26 +127,26 @@
         :cause/data (ex-data cause)}
        cause)))))
 
-(defn failure-rwpromise-mv
+(defn failure-rws-promise-mv
   "t: <env> -> Promise<log,val>"
   [ctx e]
-  (rwpromise-mv
+  (rws-promise-mv
    ctx
    (fn [_]
-     (failure-rwpromise-result e))))
+     (failure-rws-promise-result e))))
 
-(defn rw-promise-t-bind-2
+(defn rws-promise-t-bind-2
   ([output-ctx inner-ctx m inner-mv discard-val? inner-2-mf]
    (m.p/-bind
     inner-ctx
     inner-mv
 
     (fn outer-mf [outer-mv]
-      (assert (rwpromise-mv? outer-mv))
+      (assert (rws-promise-mv? outer-mv))
 
       (m.p/-return
        inner-ctx
-       (rwpromise-mv
+       (rws-promise-mv
         m
         (fn [{env :promisefx.reader/env}]
 
@@ -155,7 +155,7 @@
              (runnable.p/-run outer-mv {:promisefx.reader/env env})
              (catch #?(:clj Exception :cljs :default) e
                ;; (prn "catching 1" e)
-               (failure-rwpromise-result e)))
+               (failure-rws-promise-result e)))
            (fn [right left]
              ;; (prn "handle1" [right left])
 
@@ -172,21 +172,21 @@
                                 (when-not left? v))
                                (catch #?(:clj Exception :cljs :default) e
                                  ;; (prn "catching 2" e)
-                                 (failure-rwpromise-mv inner-ctx e)))]
+                                 (failure-rws-promise-mv inner-ctx e)))]
 
                (m.p/-bind
                 inner-ctx
                 inner-mv'
 
                 (fn outer-mf' [outer-mv']
-                  (assert (rwpromise-mv? outer-mv'))
+                  (assert (rws-promise-mv? outer-mv'))
 
                   (p/handle
                    (try
                      (runnable.p/-run outer-mv' {:promisefx.reader/env env})
                      (catch #?(:clj Exception :cljs :default) e
                        ;; (prn "catching 3" e)
-                       (failure-rwpromise-result e)))
+                       (failure-rws-promise-result e)))
 
                    (fn [right' left']
                      ;; (prn "handle2" [right' left'])
@@ -203,19 +203,19 @@
                        ;; (prn "left-right 2" [left right])
 
                        (if left'?
-                         (failure-rwpromise-result
+                         (failure-rws-promise-result
                           left'
                           {:promisefx.writer/output w''})
 
                          {:promisefx.writer/output w''
                           :promisefx/val (if discard-val? v v')}))))))))))))))))
 
-(deftype RWPromiseTCtx [output-ctx inner-ctx]
+(deftype RWSPromiseTCtx [output-ctx inner-ctx]
   ctx.p/Context
   (-get-tag [m] (ctx.p/-get-tag inner-ctx))
   m.p/Monad
   (-bind [m inner-mv inner-mf]
-    (rw-promise-t-bind-2
+    (rws-promise-t-bind-2
      output-ctx
      inner-ctx
      m
@@ -228,13 +228,13 @@
          (inner-mf right)))))
 
   (-return [m v]
-    (m.p/-return inner-ctx (success-rwpromise-mv m v)))
+    (m.p/-return inner-ctx (success-rws-promise-mv m v)))
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx (failure-rwpromise-mv m v)))
+    (m.p/-return inner-ctx (failure-rws-promise-mv m v)))
   (-handle [m inner-mv inner-mf2]
-    (rw-promise-t-bind-2
+    (rws-promise-t-bind-2
      output-ctx
      inner-ctx
      m
@@ -242,7 +242,7 @@
      false
      inner-mf2))
   (-catch [m inner-mv inner-mf]
-    (rw-promise-t-bind-2
+    (rws-promise-t-bind-2
      output-ctx
      inner-ctx
      m
@@ -254,7 +254,7 @@
          (inner-mf left)
          (m.p/-return m right)))))
   (-finally [m inner-mv inner-mf]
-    (rw-promise-t-bind-2
+    (rws-promise-t-bind-2
      output-ctx
      inner-ctx
      m
@@ -267,7 +267,7 @@
   (-ask [m]
     (m.p/-return
      inner-ctx
-     (rwpromise-mv
+     (rws-promise-mv
       m
       (fn [{env :promisefx.reader/env}]
         {:promisefx.writer/output nil
@@ -275,7 +275,7 @@
   (-local [m f mv]
     (m.p/-return
      inner-ctx
-     (rwpromise-mv
+     (rws-promise-mv
       m
       (fn [{env :promisefx.reader/env}]
         (runnable.p/-run mv {:promisefx.reader/env (f env)})))))
@@ -284,14 +284,14 @@
   (-tell [m v]
     (m.p/-return
      inner-ctx
-     (rwpromise-mv
+     (rws-promise-mv
       m
       (fn [{_env :promisefx.reader/env}]
         {:promisefx.writer/output (monoid/mappend output-ctx nil v)}))))
   (-listen [m mv]
     (m.p/-return
      inner-ctx
-     (rwpromise-mv
+     (rws-promise-mv
       m
       (fn [{env :promisefx.reader/env}]
         (let [{w :promisefx.writer/output
@@ -301,7 +301,7 @@
   (-pass [m mv]
     (m.p/-return
      inner-ctx
-     (rwpromise-mv
+     (rws-promise-mv
       m
       (fn [{env :promisefx.reader/env}]
         (let [{w :promisefx.writer/output
@@ -310,12 +310,12 @@
            :promisefx/val val}))))))
 
 (def ctx
-  (->RWPromiseTCtx
+  (->RWSPromiseTCtx
    monoid/map-monoid-ctx
    (ctrl.id/->IdentityCtx [::RWPromiseT ::monoid.map ::ctrl.id/identityCtx])))
 
 (def tagged-ctx
-  (->RWPromiseTCtx
+  (->RWSPromiseTCtx
    monoid/map-monoid-ctx
    (ctrl.tagged/->TaggedCtx [::RWPromiseT ::monoid.map ::ctrl.tagged/TaggedCtx] nil)))
 

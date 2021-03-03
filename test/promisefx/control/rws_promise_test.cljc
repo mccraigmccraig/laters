@@ -1,6 +1,6 @@
-(ns promisefx.control.prws-test
+(ns promisefx.control.rws-promise-test
   (:require
-   [promisefx.control.prws :as sut]
+   [promisefx.control.rws-promise :as sut]
    [clojure.test :as t ]
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
@@ -13,7 +13,7 @@
      (:import
       [java.io Writer])))
 
-(deftest PRWS-ctx-test
+(deftest rws-promise-ctx-test
   (testing "return"
     (is (= {:promisefx.writer/output nil
             :promisefx/val :foo}
@@ -54,7 +54,7 @@
 
              (-> (m/return 100)
                  (m/bind (fn [_v]
-                           (sut/rwpromise-mv
+                           (sut/rws-promise-mv
                             sut/ctx
                             (fn [_]
                               (throw (ex-info "boo" {:x 50}))))))
@@ -69,7 +69,7 @@
 
 
 ;; put promise failures into a marker for comparisons
-(deftype PRWSFailure [e]
+(deftype RWSPromiseTestFailure [e]
   Object
 
   ;; for the purposes of these tests we define equals between
@@ -78,7 +78,7 @@
     ;; (prn "equals" a b)
     (and
      (some? (ex-data e))
-     (instance? PRWSFailure b)
+     (instance? RWSPromiseTestFailure b)
      (and
       (identical? (sut/unwrap-cause e)
                   (sut/unwrap-cause (.-e b)))
@@ -86,15 +86,15 @@
       ;; (= (ex-data e) (ex-data (.-e b)))
       ))))
 
-(defmethod clojure.core/print-method PRWSFailure [f #?(:clj ^Writer) w]
+(defmethod clojure.core/print-method RWSPromiseTestFailure [f #?(:clj ^Writer w :cljs w)]
   (let [e (.-e f)]
-    (.write w "<< PRWSFailure: ")
+    (.write w "<< RWSPromiseTestFailure: ")
     (.write w (prn-str e))
     (.write w " >>")))
 
 (defn failure
   [e]
-  (->PRWSFailure
+  (->RWSPromiseTestFailure
    (sut/unwrap-exception e)))
 
 (defmacro catch-failure
@@ -129,19 +129,19 @@
         (m.t/run-left-identity-test sut/ctx run-compare-vals a mf xv)))
 
     (testing "right-identity"
-      (doseq [[mv xv] [[(sut/success-rwpromise-mv sut/ctx :foo) :foo]
+      (doseq [[mv xv] [[(sut/success-rws-promise-mv sut/ctx :foo) :foo]
                        (let [x (ex-info "boo" {})]
-                         [(sut/failure-rwpromise-mv sut/ctx x)
+                         [(sut/failure-rws-promise-mv sut/ctx x)
                           (failure x)])]]
         (m.t/run-right-identity-test sut/ctx run-compare-vals mv xv)))
 
     (testing "associativity"
-      (doseq [[m f g xv] [[(sut/success-rwpromise-mv sut/ctx "foo")
+      (doseq [[m f g xv] [[(sut/success-rws-promise-mv sut/ctx "foo")
                            #(m/return sut/ctx (str % "bar"))
                            #(m/return sut/ctx (str % "baz"))
                            "foobarbaz" ]
                           (let [x (ex-info "boo" {})]
-                            [(sut/failure-rwpromise-mv sut/ctx x)
+                            [(sut/failure-rws-promise-mv sut/ctx x)
                              #(m/return sut/ctx (str % "bar"))
                              #(m/return sut/ctx (str % "baz"))
                              (failure x)])]]
@@ -156,17 +156,17 @@
 
     (testing "right-identity"
       (doseq [[mv xv] (let [x (ex-info "boo" {})]
-                        [[(sut/failure-rwpromise-mv sut/ctx x) (failure x)]
-                         [(sut/success-rwpromise-mv sut/ctx :foo) :foo]])]
+                        [[(sut/failure-rws-promise-mv sut/ctx x) (failure x)]
+                         [(sut/success-rws-promise-mv sut/ctx :foo) :foo]])]
         (err.t/run-right-identity-test sut/ctx run-compare-vals mv xv)))
 
     (testing "associativity"
       (doseq [[m f g xv] (let [x (ex-info "boo" {})]
-                           [[(sut/failure-rwpromise-mv sut/ctx x)
+                           [[(sut/failure-rws-promise-mv sut/ctx x)
                              (partial error/reject' sut/ctx)
                              (partial error/reject' sut/ctx)
                              (failure x)]
-                            [(sut/failure-rwpromise-mv sut/ctx x)
+                            [(sut/failure-rws-promise-mv sut/ctx x)
                              (partial m/return' sut/ctx)
                              (partial m/return' sut/ctx)
                              x]])]
