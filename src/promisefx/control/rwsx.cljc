@@ -244,6 +244,7 @@
    (ctrl.tag/->TaggedCtx [::RWExceptionT ::monoid/map ::ctrl.tag/TaggedCtx] nil)))
 
 (comment
+  (require '[promisefx.context :as ctx])
   (require '[promisefx.control.rwexception :as rwx])
   (require '[promisefx.abstract.monad :as m])
   (require '[promisefx.control.reader :as reader])
@@ -268,7 +269,7 @@
 
   (defn handle-stuff
     [& args]
-    (m/with-context rwx/rwexception-ctx
+    (ctx/with-context rwx/rwexception-ctx
       (-> (apply stuff args)
           (e/handle
            (fn [left right]

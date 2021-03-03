@@ -1,5 +1,6 @@
 (ns promisefx.control.rws-promise-test
   (:require
+   [promisefx.context :as ctx]
    [promisefx.control.rws-promise :as sut]
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
@@ -23,7 +24,7 @@
                deref))))
 
   (testing "bind"
-    (m/with-context sut/ctx
+    (ctx/with-context sut/ctx
       (is (= {:promisefx.writer/output nil
               :promisefx/val 101}
 
@@ -33,7 +34,7 @@
                  deref)))))
 
   (testing "bind-catch"
-    (m/with-context sut/ctx
+    (ctx/with-context sut/ctx
       (is (= {:promisefx.writer/output nil
               :promisefx/val 51}
 
@@ -48,7 +49,7 @@
                  deref)))))
 
   (testing "run-catch"
-    (m/with-context sut/ctx
+    (ctx/with-context sut/ctx
       (is (= {:promisefx.writer/output nil
               :promisefx/val 51}
 

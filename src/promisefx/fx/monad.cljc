@@ -1,7 +1,8 @@
 (ns promisefx.fx.monad
   (:require
    [promisefx.fx.monad.protocols :as p]
-   [promisefx.context.protocols :as ctx.p]))
+   [promisefx.context.protocols :as ctx.p]
+   [promisefx.context :as ctx]))
 
 (defn bind'
   ([mv f]
@@ -32,12 +33,6 @@
     (p/-mzero m)))
 
 #?(:clj
-   (defmacro with-context
-     [ctx & body]
-     `(let [~'this-context## ~ctx]
-        ~@body)))
-
-#?(:clj
    (defn mlet*
      "mostly taken from funcool/cats.core"
      [m bindings & body]
@@ -54,7 +49,7 @@
                                   `(bind ~m ~r (fn [~l] ~acc))))
                               `(do ~@body)))]
        (if (some? m)
-         `(with-context ~m ~forms)
+         `(ctx/with-context ~m ~forms)
          `~forms))))
 
 #?(:clj

@@ -101,5 +101,7 @@
                             [(error/reject sut/ctx x)
                              (partial m/return' sut/ctx)
                              (partial m/return' sut/ctx)
-                             x]])]
-        (err.t/run-associativity-test sut/ctx run-compare-vals m f g xv)))))
+                             (failure x)]])]
+        (err.t/run-associativity-test sut/ctx run-compare-vals m f g xv)))
+
+    ))

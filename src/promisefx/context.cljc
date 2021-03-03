@@ -17,3 +17,9 @@
 (defn get-tag
   [^Context ctx]
   (p/-get-tag ctx))
+
+#?(:clj
+   (defmacro with-context
+     [ctx & body]
+     `(let [~'this-context## ~ctx]
+        ~@body)))
