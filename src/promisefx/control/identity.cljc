@@ -7,9 +7,9 @@
 ;;; simple Identity context
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftype IdentityCtx [t]
+(deftype IdentityCtx []
   ctx.p/Context
-  (-get-tag [m] t)
+  (-get-tag [m] [::Identity])
   m.p/Monad
   (-bind [m mv f]
     (f mv))
@@ -18,4 +18,4 @@
   (-return [m v]
     v))
 
-(def ctx (->IdentityCtx [::Identity]))
+(def ctx (->IdentityCtx))
