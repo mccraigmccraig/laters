@@ -4,9 +4,7 @@
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.fx.error.protocols :as err.p]
    [promisefx.data.extractable.protocols :as extractable.p]
-   [promisefx.data.success-failure :as s.f]
-   [promisefx.control.identity :as ctrl.id]
-   [promisefx.control.tagged :as ctrl.tag]))
+   [promisefx.data.success-failure :as s.f]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ExceptionCtx

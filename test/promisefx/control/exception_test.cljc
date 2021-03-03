@@ -8,7 +8,6 @@
    [promisefx.fx.error :as error]
    [promisefx.data.extractable.protocols :as extractable.p]
    [promisefx.data.success-failure :as s.f]
-   [promisefx.context.protocols :as ctx.p]
    [promisefx.fx.monad-test :as m.t]))
 
 (deftest Exception-test
