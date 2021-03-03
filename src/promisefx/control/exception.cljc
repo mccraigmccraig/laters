@@ -28,7 +28,7 @@
     (try
       (if (s.f/failure? mv)
         mv
-        (f (extractable.p/-extract mv)))
+        (f mv))
       (catch #?(:clj Exception :cljs :default) e
         (s.f/failure m e))))
   (-return [m v]

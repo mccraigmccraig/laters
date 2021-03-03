@@ -57,7 +57,7 @@
   (testing "right-identity"
     (let [[a b :as mvs] (m.t/right-identity-test-mvs
                          sut/ctx
-                         (s.f/success sut/ctx :foo))
+                         :foo)
 
           [a-val b-val] (map #(extractable.p/-extract %) mvs)]
       (is (= :foo a-val))
@@ -65,7 +65,7 @@
   (testing "associativity"
     (let [[a b :as mvs] (m.t/associativity-test-mvs
                          sut/ctx
-                         (s.f/success sut/ctx "foo")
+                         "foo"
                          #(m/return sut/ctx (str % "bar"))
                          #(m/return sut/ctx (str % "baz")))
           [a-val b-val] (map #(extractable.p/-extract %) mvs)]
