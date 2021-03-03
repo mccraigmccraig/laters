@@ -14,6 +14,9 @@
 ;; return+bind process the right branch and short-circuit the left
 ;; reject+catch process the left branch and short-circuit the right
 
+
+;; (return a) >>= f ≡ f a
+;; (bind (return a) f) ≡ (f a)
 (defn left-identity-test-mvs
   ([ctx a mf]
    (left-identity-test-mvs {} ctx a mf))
@@ -28,6 +31,8 @@
    [(bind ctx (return ctx a) mf)
     (mf a)]))
 
+;; m >>= return ≡ m
+;; (bind m return) ≡ m
 (defn right-identity-test-mvs
   ([ctx mv] (right-identity-test-mvs {} ctx mv))
   ([{bind :bind
@@ -40,6 +45,8 @@
    [(bind ctx mv #(return ctx %))
     mv]))
 
+;; (m >>= f) >>= g ≡ m >>= (\x -> f x >>= g)
+;; (bind (bind m f) g) ≡ (bind m (fn [x] (bind (f x) g)))
 (defn associativity-test-mvs
   ([ctx m f g] (associativity-test-mvs {} ctx m f g))
   ([{bind :bind
