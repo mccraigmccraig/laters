@@ -8,31 +8,11 @@
    [promisefx.fx.writer.protocols :as m.w.p]
    [promisefx.control.identity :as ctrl.id]
    [promisefx.control.tagged :as ctrl.tagged]
+   [promisefx.data.exception :as data.ex]
    [promisefx.data.extractable.protocols :as extractable.p]
    [promisefx.data.runnable.protocols :as runnable.p]
    [promisefx.data.monoid :as monoid]
-   [promesa.core :as p])
-  #?(:clj
-     (:import
-      [java.util.concurrent
-       ExecutionException
-       CompletionException])))
-
-(def ^:private exception-wrapper-classes
-  #?(:clj #{ExecutionException CompletionException}
-     :cljs #{}))
-
-(defn platform-exception-wrapper?
-  [e]
-  #?(:clj (contains? exception-wrapper-classes (some-> e .getClass))
-     :cljs false))
-
-(defn unwrap-exception
-  "remove j.u.c exception wrappers"
-  [e]
-  (if (platform-exception-wrapper? e)
-    (ex-cause e)
-    e))
+   [promesa.core :as p]))
 
 ;; values are: <env,state> -> Promise<log,state,val>
 (defrecord RWSPromiseMV [ctx f]
@@ -68,7 +48,7 @@
   [e]
   ;; (prn "unwrap-failure-channel" (unwrap-exception e))
   (some-> e
-          unwrap-exception
+          data.ex/unwrap-exception
           ex-data
           :promisefx.rwpromise/failure-channel
           ;; a failure-channel should never include a value. remove
@@ -84,7 +64,7 @@
   if the provided exception has no failure-channel data, then it is the
   original exception"
   [e]
-  (let [e (unwrap-exception e)
+  (let [e (data.ex/unwrap-exception e)
         has-failure-channel? (some? (some-> e
                                             ex-data
                                             :promisefx.rwpromise/failure-channel))]
@@ -109,7 +89,7 @@
   ([e] (failure-rws-promise-result e {:promisefx.writer/output nil}))
 
   ([e failure-channel]
-   (let [e (unwrap-exception e)
+   (let [e (data.ex/unwrap-exception e)
          has-failure-channel? (some? (some-> e
                                              ex-data
                                              :promisefx.rwpromise/failure-channel))

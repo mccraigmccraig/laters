@@ -5,6 +5,7 @@
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
    [promisefx.fx.monad :as m]
+   [promisefx.data.exception :as data.ex]
    [promisefx.data.runnable :as r]
    [promisefx.fx.error :as error]
    [promisefx.fx.error-test :as err.t]
@@ -95,7 +96,7 @@
 (defn failure
   [e]
   (->RWSPromiseTestFailure
-   (sut/unwrap-exception e)))
+   (data.ex/unwrap-exception e)))
 
 (defmacro catch-failure
   [& body]
