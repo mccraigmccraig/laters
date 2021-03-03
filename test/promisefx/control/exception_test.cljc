@@ -21,7 +21,7 @@
                  sut/ctx
                  (m/return sut/ctx 5)
                  (fn [b] (m/return sut/ctx (+ a b))))))]
-      (is (= (s.f/success sut/ctx 15)
+      (is (= 15
              mv))))
 
   (testing "uncaught error"
@@ -41,40 +41,7 @@
                  sut/ctx
                  (throw (ex-info "boo!" {}))
                (fn [e] (m/return sut/ctx 10)))]
-      (is (= (s.f/success sut/ctx 10)
-             mv)))))
-
-(deftest TaggedException-test
-  (testing "bind"
-    (let [mv (m/bind
-              sut/tagged-ctx
-              (m/return sut/tagged-ctx 10)
-              (fn [a]
-                (m/bind
-                 sut/tagged-ctx
-                 (m/return sut/tagged-ctx 5)
-                 (fn [b] (m/return sut/tagged-ctx (+ a b))))))]
-      (is (= (s.f/success sut/tagged-ctx 15)
-             mv))))
-
-  (testing "uncaught error"
-    (let [mv (m/bind
-              sut/tagged-ctx
-              (m/return sut/tagged-ctx 10)
-              (fn [a]
-                (m/bind
-                 sut/tagged-ctx
-                 (throw (ex-info "boo!" {}))
-                 (fn [b] (m/return sut/tagged-ctx (+ a b))))))]
-      (is (s.f/failure? mv))
-      (is (= "boo!" (-> mv :e .getMessage)))))
-
-  (testing "catch"
-    (let [mv (error/catch
-                 sut/tagged-ctx
-                 (throw (ex-info "boo!" {}))
-               (fn [_] (m/return sut/tagged-ctx 10)))]
-      (is (= (s.f/success sut/tagged-ctx 10)
+      (is (= 10
              mv)))))
 
 (deftest monad-law-test

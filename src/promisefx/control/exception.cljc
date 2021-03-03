@@ -9,60 +9,43 @@
    [promisefx.control.tagged :as ctrl.tag]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; ExceptionTCtx
+;;; ExceptionCtx
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; values are Success|Failure
+;; values are Failure|anything-else
 ;; Failures short-circuit
-;; Exceptions are wrapped in a Failure
+;; thrown Exceptions get caught and wrapped in a Failure
 ;; anything can be put in a Failure with error/reject
 ;; Failures can be caught with error/catch
 ;; finally behaviour with error/finally
 
-;; using the transformer around a "Tagged" context gives auto-lifting of mvs
-
-(deftype ExceptionTCtx [inner-ctx]
+(deftype ExceptionCtx []
   ctx.p/Context
-  (-get-tag [m] (ctx.p/-get-tag inner-ctx))
+  (-get-tag [m] [::Exception])
+
   m.p/Monad
   (-bind [m mv f]
-    (m.p/-bind
-     inner-ctx
-     mv
-     (fn [mv]
-       (try
-         (cond
-           (s.f/success? mv) (f (extractable.p/-extract mv))
-           (s.f/failure? mv) (m.p/-return inner-ctx mv)
-           :else (m.p/-return
-                  inner-ctx
-                  (s.f/failure
-                   m
-                   (ex-info "illegal mv" {:mv mv}))))
-         (catch #?(:clj Exception :cljs :default) e
-           (m.p/-return inner-ctx (s.f/failure m e)))))))
+    (try
+      (if (s.f/failure? mv)
+        mv
+        (f (extractable.p/-extract mv)))
+      (catch #?(:clj Exception :cljs :default) e
+        (s.f/failure m e))))
   (-return [m v]
-    (m.p/-return inner-ctx (s.f/success m v)))
+    v)
 
   err.p/MonadError
   (-reject [m v]
-    (m.p/-return inner-ctx (s.f/failure m v)))
+    (s.f/failure m v))
   (-catch [m mv f]
-    (m.p/-bind
-     inner-ctx
-     mv
-     (fn [mv]
-       (if (s.f/failure? mv)
-         (try
-           (f (extractable.p/-extract mv))
-           (catch #?(:clj Exception :cljs :default) e
-             (m.p/-return inner-ctx (s.f/failure m e))))
-         (m.p/-return inner-ctx mv)))))
+    (if (s.f/failure? mv)
+      (try
+        (f (extractable.p/-extract mv))
+        (catch #?(:clj Exception :cljs :default) e
+          (s.f/failure m e)))
+      mv))
   (-finally [m mv f]
     mv))
 
 (def ctx
-  (->ExceptionTCtx (ctrl.id/->IdentityCtx [::ExceptionT ::ctrl.id/Identity])))
-
-(def tagged-ctx
-  (->ExceptionTCtx (ctrl.tag/->TaggedCtx [::ExceptionT ::ctrl.tag/Tagged] nil)))
+  (->ExceptionCtx))
