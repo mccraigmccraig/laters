@@ -49,26 +49,18 @@
   (is (= mva mvb)))
 
 (deftest monad-law-test
-  (testing "left-identity"
-    (m.t/run-left-identity-tests
-     sut/untagged-ctx
-     run-compare-vals
+  (m.t/run-monad-law-tests
+   sut/untagged-ctx
+   run-compare-vals
 
-     [[10 (fn [v] (m/return sut/untagged-ctx (inc v))) 11]]))
+   {:left-identity
+    [[10 (fn [v] (m/return sut/untagged-ctx (inc v))) 11]]
 
-  (testing "right-identity"
-    (m.t/run-right-identity-tests
-     sut/untagged-ctx
-     run-compare-vals
+    :right-identity
+    [[:foo :foo]]
 
-     [[:foo :foo]]))
-
-  (testing "associativity"
-    (m.t/run-associativity-tests
-     sut/untagged-ctx
-     run-compare-vals
-
-     [["foo"
-       #(m/return sut/untagged-ctx (str % "bar"))
-       #(m/return sut/untagged-ctx (str % "baz"))
-       "foobarbaz"]])))
+    :associativity
+    [["foo"
+      #(m/return sut/untagged-ctx (str % "bar"))
+      #(m/return sut/untagged-ctx (str % "baz"))
+      "foobarbazx"]]}))

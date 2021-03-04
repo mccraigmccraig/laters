@@ -116,3 +116,18 @@
   ([opts ctx run-compare-fn m-f-g-expected-vals]
    (doseq [[m f g expected-val] m-f-g-expected-vals]
      (run-associativity-test opts ctx run-compare-fn m f g expected-val))))
+
+(defn run-monad-law-tests
+  ([ctx run-compare-fn law-testdata]
+   (run-monad-law-tests {} ctx run-compare-fn law-testdata))
+  ([opts
+    ctx
+    run-compare-fn
+    {left-identity-data :left-identity
+     right-identity-data :right-identity
+     associativity-data :associativity
+     :as law-testdata}]
+
+   (run-left-identity-tests opts ctx run-compare-fn left-identity-data)
+   (run-right-identity-tests opts ctx run-compare-fn right-identity-data)
+   (run-associativity-tests opts ctx run-compare-fn associativity-data)))
