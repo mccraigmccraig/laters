@@ -48,19 +48,24 @@
   (is (= expected-val mva))
   (is (= mva mvb)))
 
-(deftest monad-law-test
+(deftest monad-law-tests
   (m.t/run-monad-law-tests
    sut/untagged-ctx
    run-compare-vals
 
    {:left-identity
-    [[10 (fn [v] (m/return sut/untagged-ctx (inc v))) 11]]
+    ;; [a mf expected-mv]
+    [[10 (fn [v] (m/return sut/untagged-ctx (inc v))) 11]
+
+     [10 (fn [v] (error/reject sut/untagged-ctx (inc v))) (s.f/failure sut/untagged-ctx 11)]]
 
     :right-identity
+    ;; [mv expected-mv]
     [[:foo :foo]]
 
     :associativity
+    ;; [mv f g expected-mv]
     [["foo"
       #(m/return sut/untagged-ctx (str % "bar"))
       #(m/return sut/untagged-ctx (str % "baz"))
-      "foobarbazx"]]}))
+      "foobarbaz"]]}))

@@ -37,6 +37,15 @@
    g
    expected-val))
 
+(defn run-monad-law-tests
+  [ctx run-compare-fn law-testdata]
+  (m.test/run-monad-law-tests
+   {:bind err/catch'
+    :return err/reject'}
+   ctx
+   run-compare-fn
+   law-testdata))
+
 (defn run-both-left-identity-tests
   [ctx run-compare-fn a mf expected-val]
   (run-left-identity-test ctx run-compare-fn a mf expected-val)
