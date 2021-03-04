@@ -59,68 +59,72 @@
     (is (= expected-val a-val))
     (is (= a-val b-val))))
 
+(defn context-monad-law-tests
+  [ctx]
+  (ctx/with-context ctx
+    (let [x (ex-info "boo" {})]
+
+      (testing (str "bind/return " (pr-str (ctx/get-tag ctx)))
+        (m.t/run-monad-law-tests
+         sut/ctx
+         run-compare-vals
+
+         {:left-identity
+          ;; [a mf expected-mv]
+          [[10
+            (fn [v] (m/return (inc v)))
+            11]
+           [10
+            (fn [_v] (error/reject x))
+            (s.f/failure sut/ctx x)]]
+
+          :right-identity
+          ;; [mv expected-mv]
+          [[(m/return :foo) :foo]
+           [(error/reject x) (s.f/failure sut/ctx x)]]
+
+          :associativity
+          ;; [mv f g expected-mv]
+          [[(m/return "foo")
+            #(m/return (str % "bar"))
+            #(m/return (str % "baz"))
+            "foobarbaz"]
+           [(error/reject x)
+            #(m/return (str % "bar"))
+            #(m/return (str % "baz"))
+            (s.f/failure sut/ctx x)]]}))
+
+      (testing (str "catch/reject " (pr-str (ctx/get-tag ctx)))
+
+        (err.t/run-monad-law-tests
+         sut/ctx
+         run-compare-vals
+
+         {:left-identity
+          ;; [a mf expected-mv]
+          [[x #(error/reject %) (s.f/failure sut/ctx x)]
+           [x #(m/return %) x]]
+
+          :right-identity
+          ;; [mv expected-mv]
+          [[(error/reject x) (s.f/failure sut/ctx x)]
+           [(m/return :foo) :foo]]
+
+          :associativity
+          ;; [mv f g expected-mv]
+          [[(error/reject x)
+            #(error/reject %)
+            #(error/reject %)
+            (s.f/failure sut/ctx x)]
+           [(error/reject x)
+            #(m/return %)
+            #(m/return %)
+            x]]})))))
+
+
 (deftest monad-law-test
-  (testing "bind"
-    (testing "left-identity"
-      (doseq [[a mf xv] [[10
-                          (fn [v] (m/return sut/ctx (inc v)))
-                          11]
-                         (let [x (ex-info "boo" {})]
-                           [10
-                            (fn [_v] (error/reject sut/ctx x))
-                            (s.f/failure sut/ctx x)])]]
-        (m.t/run-left-identity-test sut/ctx run-compare-vals a mf xv)))
+  (context-monad-law-tests sut/ctx)
 
-    (testing "right-identity"
-      (doseq [[mv xv] [[(sut/success-rwsx-val sut/ctx :foo)
-                        :foo]
-                       (let [x (ex-info "boo" {})]
-                         [(sut/failure-rwsx-val sut/ctx x)
-                          (s.f/failure sut/ctx x)])]]
-        (m.t/run-right-identity-test sut/ctx run-compare-vals mv xv)))
-
-    (testing "associativity"
-      (doseq [[m f g xv] [[(sut/success-rwsx-val sut/ctx "foo")
-                           #(m/return sut/ctx (str % "bar"))
-                           #(m/return sut/ctx (str % "baz"))
-                           "foobarbaz"]
-                          (let [x (ex-info "boo" {})]
-                            [(sut/failure-rwsx-val sut/ctx x)
-                             #(m/return sut/ctx (str % "bar"))
-                             #(m/return sut/ctx (str % "baz"))
-                             (s.f/failure sut/ctx x)])]]
-        (m.t/run-associativity-test sut/ctx run-compare-vals m f g xv))))
-
-  (testing "catch"
-    (testing "left-identity"
-      (doseq [[a mf xv] (let [x (ex-info "boo" {})]
-                          [[x
-                            #(error/reject' sut/ctx %)
-                            (s.f/failure sut/ctx x)]
-                           [x
-                            #(m/return' sut/ctx %)
-                            x]])]
-        (err.t/run-left-identity-test sut/ctx run-compare-vals a mf xv)))
-
-    (testing "right-identity"
-      (doseq [[mv xv] (let [x (ex-info "boo" {})]
-                        [[(sut/failure-rwsx-val sut/ctx x)
-                          (s.f/failure sut/ctx x)]
-                         [(sut/success-rwsx-val sut/ctx :foo)
-                          :foo]])]
-        (err.t/run-right-identity-test sut/ctx run-compare-vals mv xv)))
-
-    (testing "associativity"
-      (doseq [[m f g xv] (let [x (ex-info "boo" {})]
-                           [[(sut/failure-rwsx-val sut/ctx x)
-                             (partial error/reject' sut/ctx)
-                             (partial error/reject' sut/ctx)
-                             (s.f/failure sut/ctx x)]
-                            [(sut/failure-rwsx-val sut/ctx x)
-                             (partial m/return' sut/ctx)
-                             (partial m/return' sut/ctx)
-                             x]])]
-        (err.t/run-associativity-test sut/ctx run-compare-vals m f g xv))))
 
   (testing "finally"
     (testing "left-identity"

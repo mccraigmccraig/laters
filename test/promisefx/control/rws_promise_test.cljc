@@ -139,8 +139,7 @@
           :right-identity
           ;; [mv expected-mv]
           [[(m/return :foo) :foo]
-           [(error/reject x)
-            (failure x)]]
+           [(error/reject x) (failure x)]]
 
           :associativity
           ;; [mv f g expected-mv]
