@@ -4,7 +4,9 @@
    [promisefx.fx.monad.protocols :as m.p]
    [promisefx.fx.error.protocols :as err.p]
    [promisefx.data.extractable.protocols :as extractable.p]
-   [promisefx.data.success-failure :as s.f]))
+   [promisefx.data.success-failure :as s.f]
+   [promisefx.control.identity :as ctrl.id]
+   [promisefx.control.tagged :as ctrl.tag]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ExceptionCtx
@@ -17,9 +19,9 @@
 ;; Failures can be caught with error/catch
 ;; finally behaviour with error/finally
 
-(deftype ExceptionCtx []
+(deftype ExceptionTCtx [tag inner-ctx]
   ctx.p/Context
-  (-get-tag [m] [::Exception])
+  (-get-tag [m] tag)
 
   m.p/Monad
   (-bind [m mv f]
@@ -45,5 +47,12 @@
   (-finally [m mv f]
     mv))
 
+(def untagged-ctx
+  (->ExceptionTCtx
+   [::ExceptionT ::Identity]
+   ctrl.id/ctx))
+
 (def ctx
-  (->ExceptionCtx))
+  (->ExceptionTCtx
+   [::ExceptionT ::Tagged]
+   (ctrl.tag/->TaggedCtx [::ExceptionT ::Tagged] nil)))

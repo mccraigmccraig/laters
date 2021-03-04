@@ -17,6 +17,7 @@
 
 ;; (return a) >>= f ≡ f a
 ;; (bind (return a) f) ≡ (f a)
+;; a is any plain value, f is any monadic fn
 (defn left-identity-test-mvs
   ([ctx a mf]
    (left-identity-test-mvs {} ctx a mf))
@@ -33,6 +34,7 @@
 
 ;; m >>= return ≡ m
 ;; (bind m return) ≡ m
+;; m is any monadic value
 (defn right-identity-test-mvs
   ([ctx mv] (right-identity-test-mvs {} ctx mv))
   ([{bind :bind
@@ -47,6 +49,7 @@
 
 ;; (m >>= f) >>= g ≡ m >>= (\x -> f x >>= g)
 ;; (bind (bind m f) g) ≡ (bind m (fn [x] (bind (f x) g)))
+;; m is any monadic value, f and g are any monadic fns
 (defn associativity-test-mvs
   ([ctx m f g] (associativity-test-mvs {} ctx m f g))
   ([{bind :bind
@@ -77,6 +80,13 @@
     (left-identity-test-mvs opts ctx a mf)
     expected-val)))
 
+(defn run-left-identity-tests
+  ([ctx run-compare-fn a-mf-expected-vals]
+   (run-left-identity-tests {} ctx run-compare-fn a-mf-expected-vals))
+  ([opts ctx run-compare-fn a-mf-expected-vals]
+   (doseq [[a mf expected-val] a-mf-expected-vals]
+     (run-left-identity-test opts ctx run-compare-fn a mf expected-val))))
+
 (defn run-right-identity-test
   ([ctx run-compare-fn mv expected-val]
    (run-right-identity-test nil ctx run-compare-fn mv expected-val))
@@ -85,6 +95,13 @@
     (right-identity-test-mvs opts ctx mv)
     expected-val)))
 
+(defn run-right-identity-tests
+  ([ctx run-compare-fn mv-expected-vals]
+   (run-right-identity-tests {} ctx run-compare-fn mv-expected-vals))
+  ([opts ctx run-compare-fn mv-expected-vals]
+   (doseq [[mv expected-val] mv-expected-vals]
+     (run-right-identity-test opts ctx run-compare-fn mv expected-val))))
+
 (defn run-associativity-test
   ([ctx run-compare-fn m f g expected-val]
    (run-associativity-test nil ctx run-compare-fn m f g expected-val))
@@ -92,3 +109,10 @@
    (run-compare-fn
     (associativity-test-mvs opts ctx m f g)
     expected-val)))
+
+(defn run-associativity-tests
+  ([ctx run-compare-fn m-f-g-expected-vals]
+   (run-associativity-tests {} ctx run-compare-fn m-f-g-expected-vals))
+  ([opts ctx run-compare-fn m-f-g-expected-vals]
+   (doseq [[m f g expected-val] m-f-g-expected-vals]
+     (run-associativity-test opts ctx run-compare-fn m f g expected-val))))
