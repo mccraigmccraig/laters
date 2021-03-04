@@ -120,111 +120,68 @@
     (is (= expected-val a-val))
     (is (= a-val b-val))))
 
-(deftest monad-law-test
-  (testing "bind"
-    (m.t/run-monad-law-tests
-     sut/ctx
-     run-compare-vals
-
-     {:left-identity
-      [[10 (fn [v] (m/return sut/ctx (inc v))) 11]
-
-       (let [x (ex-info "boo" {})]
-         [10 (fn [_v] (error/reject sut/ctx x)) (failure x) ])]
-
-      :right-identity
-      [[(sut/success-rws-promise-mv sut/ctx :foo) :foo]
-
-       (let [x (ex-info "boo" {})]
-         [(sut/failure-rws-promise-mv sut/ctx x)
-          (failure x)])]
-
-      :associativity
-      [[(sut/success-rws-promise-mv sut/ctx "foo")
-        #(m/return sut/ctx (str % "bar"))
-        #(m/return sut/ctx (str % "baz"))
-        "foobarbaz" ]
-
-       (let [x (ex-info "boo" {})]
-         [(sut/failure-rws-promise-mv sut/ctx x)
-          #(m/return sut/ctx (str % "bar"))
-          #(m/return sut/ctx (str % "baz"))
-          (failure x)])]}))
-
-  (testing "catch"
-    (err.t/run-monad-law-tests
-     sut/ctx
-     run-compare-vals
-
-     {:left-identity
-      (let [x (ex-info "boo" {})]
-        [[x #(error/reject' sut/ctx %) (failure x)]
-         [x #(m/return' sut/ctx %) x]])
-
-      :right-identity
-      (let [x (ex-info "boo" {})]
-        [[(sut/failure-rws-promise-mv sut/ctx x) (failure x)]
-         [(sut/success-rws-promise-mv sut/ctx :foo) :foo]])
-
-      :associativity
-      (let [x (ex-info "boo" {})]
-        [[(sut/failure-rws-promise-mv sut/ctx x)
-          (partial error/reject' sut/ctx)
-          (partial error/reject' sut/ctx)
-          (failure x)]
-         [(sut/failure-rws-promise-mv sut/ctx x)
-          (partial m/return' sut/ctx)
-          (partial m/return' sut/ctx)
-          x]])})))
-
-
-(deftest tagged-ctx-monad-law-test
-  (testing "bind"
-
+(defn context-monad-law-tests
+  [ctx]
+  (ctx/with-context ctx
     (let [x (ex-info "boo" {})]
-      (m.t/run-monad-law-tests
-       sut/tagged-ctx
-       run-compare-vals
 
-       {:left-identity
-        [[10 (fn [v] (m/return sut/tagged-ctx (inc v))) 11]
-         [10 (fn [_v] (error/reject sut/tagged-ctx x)) (failure x) ]]
+      (testing (str "bind/return " (pr-str (ctx/get-tag ctx)))
 
-        :right-identity
-        [[(sut/success-rws-promise-mv sut/tagged-ctx :foo) :foo]
-         [(sut/failure-rws-promise-mv sut/tagged-ctx x)
-          (failure x)]]
+        (m.t/run-monad-law-tests
+         sut/ctx
+         run-compare-vals
 
-        :associativity
-        [[(sut/success-rws-promise-mv sut/tagged-ctx "foo")
-          #(m/return sut/tagged-ctx (str % "bar"))
-          #(m/return sut/tagged-ctx (str % "baz"))
-          "foobarbaz" ]
-         [(sut/failure-rws-promise-mv sut/tagged-ctx x)
-          #(m/return sut/tagged-ctx (str % "bar"))
-          #(m/return sut/tagged-ctx (str % "baz"))
-          (failure x)]]})))
+         {:left-identity
+          ;; [a mf expected-mv]
+          [[10 (fn [v] (m/return (inc v))) 11]
+           [10 (fn [_v] (error/reject x)) (failure x) ]]
 
-  (testing "catch"
-    (let [x (ex-info "boo" {})]
-      (err.t/run-monad-law-tests
-       sut/tagged-ctx
-       run-compare-vals
+          :right-identity
+          ;; [mv expected-mv]
+          [[(m/return :foo) :foo]
+           [(error/reject x)
+            (failure x)]]
 
-       {:left-identity
-        [[x #(error/reject' sut/tagged-ctx %) (failure x)]
-         [x #(m/return' sut/tagged-ctx %) x]]
+          :associativity
+          ;; [mv f g expected-mv]
+          [[(m/return "foo")
+            #(m/return (str % "bar"))
+            #(m/return (str % "baz"))
+            "foobarbaz" ]
+           [(error/reject x)
+            #(m/return (str % "bar"))
+            #(m/return (str % "baz"))
+            (failure x)]]}))
 
-        :right-identity
-        [[(sut/failure-rws-promise-mv sut/tagged-ctx x) (failure x)]
-         [(sut/success-rws-promise-mv sut/tagged-ctx :foo) :foo]]
+      (testing (str "catch/reject " (pr-str (ctx/get-tag ctx)))
 
-        :associativity
-        [[(sut/failure-rws-promise-mv sut/tagged-ctx x)
-          (partial error/reject' sut/tagged-ctx)
-          (partial error/reject' sut/tagged-ctx)
-          (failure x)]
-         [(sut/failure-rws-promise-mv sut/tagged-ctx x)
-          (partial m/return' sut/tagged-ctx)
-          (partial m/return' sut/tagged-ctx)
-          x]]}))))
+        (err.t/run-monad-law-tests
+         sut/ctx
+         run-compare-vals
+
+         {:left-identity
+          ;; [a mf expected-mv]
+          [[x #(error/reject %) (failure x)]
+           [x #(m/return %) x]]
+
+          :right-identity
+          ;; [mv expected-mv]
+          [[(error/reject x) (failure x)]
+           [(m/return :foo) :foo]]
+
+          :associativity
+          ;; [mv f g expected-mv]
+          [[(error/reject x)
+            #(error/reject %)
+            #(error/reject %)
+            (failure x)]
+           [(error/reject sut/ctx x)
+            #(m/return %)
+            #(m/return %)
+            x]]})))))
+
+(deftest monad-law-tests
+
+  (context-monad-law-tests sut/ctx)
+
+  (context-monad-law-tests sut/tagged-ctx))
