@@ -1,6 +1,8 @@
 (ns promisefx.fx.monad-test
   (:require
-   [promisefx.fx.monad :as m]))
+   [promisefx.fx.monad :as m]
+   #?(:clj [clojure.test :as t :refer [deftest testing is]]
+      :cljs [cljs.test :as t :refer-macros [deftest testing is]])))
 
 ;; https://wiki.haskell.org/Monad_laws
 ;; compute the pairs of monadic values to compare
@@ -81,9 +83,10 @@
   ([ctx run-compare-fn a mf expected-val]
    (run-left-identity-test nil ctx run-compare-fn a mf expected-val))
   ([opts ctx run-compare-fn a mf expected-val]
-   (run-compare-fn
-    (left-identity-test-mvs opts ctx a mf)
-    expected-val)))
+   (testing (prn-str "left-identity: " a mf expected-val)
+     (run-compare-fn
+      (left-identity-test-mvs opts ctx a mf)
+      expected-val))))
 
 (defn run-left-identity-tests
   ([ctx run-compare-fn a-mf-expected-vals]
@@ -96,9 +99,10 @@
   ([ctx run-compare-fn mv expected-val]
    (run-right-identity-test nil ctx run-compare-fn mv expected-val))
   ([opts ctx run-compare-fn mv expected-val]
-   (run-compare-fn
-    (right-identity-test-mvs opts ctx mv)
-    expected-val)))
+   (testing (prn-str "right-identity:" mv expected-val)
+     (run-compare-fn
+      (right-identity-test-mvs opts ctx mv)
+      expected-val))))
 
 (defn run-right-identity-tests
   ([ctx run-compare-fn mv-expected-vals]
@@ -111,9 +115,11 @@
   ([ctx run-compare-fn m f g expected-val]
    (run-associativity-test nil ctx run-compare-fn m f g expected-val))
   ([opts ctx run-compare-fn m f g expected-val]
-   (run-compare-fn
-    (associativity-test-mvs opts ctx m f g)
-    expected-val)))
+
+   (testing (prn-str "associativity: " m f g expected-val)
+     (run-compare-fn
+      (associativity-test-mvs opts ctx m f g)
+      expected-val))))
 
 (defn run-associativity-tests
   ([ctx run-compare-fn m-f-g-expected-vals]
@@ -131,7 +137,7 @@
     {left-identity-data :left-identity
      right-identity-data :right-identity
      associativity-data :associativity
-     :as law-testdata}]
+     :as _law-testdata}]
 
    (run-left-identity-tests opts ctx run-compare-fn left-identity-data)
    (run-right-identity-tests opts ctx run-compare-fn right-identity-data)
