@@ -76,4 +76,5 @@
           "foobarbaz"]]}))))
 
 (deftest monad-law-tests
-  (context-monad-law-tests sut/untagged-ctx))
+  (context-monad-law-tests sut/untagged-ctx)
+  (context-monad-law-tests sut/ctx))

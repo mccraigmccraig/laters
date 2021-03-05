@@ -24,28 +24,40 @@
   (-get-tag [m] tag)
 
   m.p/Monad
-  (-bind [m mv f]
-    (try
-      (if (s.f/failure? mv)
-        mv
-        (f mv))
-      (catch #?(:clj Exception :cljs :default) e
-        (s.f/failure m e))))
-  (-return [m v]
-    v)
+  (-bind [outer-ctx inner-mv inner-mf]
+    (m.p/-bind
+     inner-ctx
+     inner-mv
+     (fn outer-mf
+       [outer-mv]
+       (try
+         (if (s.f/failure? outer-mv)
+           (m.p/-return inner-ctx outer-mv)
+           (inner-mf outer-mv))
+         (catch #?(:clj Exception :cljs :default) e
+           (m.p/-return
+            inner-ctx
+            (s.f/failure outer-ctx e)))))))
+  (-return [outer-ctx v]
+    (m.p/-return inner-ctx v))
 
   err.p/MonadError
-  (-reject [m v]
-    (s.f/failure m v))
-  (-catch [m mv f]
-    (if (s.f/failure? mv)
-      (try
-        (f (extractable.p/-extract mv))
-        (catch #?(:clj Exception :cljs :default) e
-          (s.f/failure m e)))
-      mv))
-  (-finally [m mv f]
-    mv))
+  (-reject [outer-ctx v]
+    (m.p/-return inner-ctx (s.f/failure outer-ctx v)))
+  (-catch [outer-ctx inner-mv inner-mf]
+    (m.p/-bind
+     inner-ctx
+     inner-mv
+     (fn outer-mf
+       [outer-mv]
+       (if (s.f/failure? outer-mv)
+         (try
+           (inner-mf (extractable.p/-extract outer-mv))
+           (catch #?(:clj Exception :cljs :default) e
+             (m.p/-return inner-ctx (s.f/failure outer-ctx e))))
+         (m.p/-return inner-ctx outer-mv)))))
+  (-finally [outer-ctx inner-mv inner-mf]
+    inner-mv))
 
 (def untagged-ctx
   (->ExceptionTCtx
