@@ -29,4 +29,26 @@
   (-return [m v]
     v))
 
-(def ctx (->TaggedCtx nil nil))
+(def ctx (->TaggedCtx [::Tagged] nil))
+
+;; boxes the value in a [tag val] variant
+;; can use to test transformers, which must
+;; also work with inner-ctx which introduce
+;; additional structure
+(deftype BoxedTaggedCtx [t lifter]
+  ctx.p/Context
+  (-get-tag [m] t)
+
+  m.p/Monad
+  (-bind [m mv f]
+    (when-not (vector? mv)
+      (throw (ex-info "mv is not a vector")))
+
+    (let [[tag val] mv]
+      (if (= t tag)
+        (f val)
+        (f (lifter/lift lifter t tag val)))))
+  (-return [m v]
+    [t v]))
+
+(def boxed-ctx (->BoxedTaggedCtx [::BoxedTagged] nil))
