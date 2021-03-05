@@ -5,6 +5,7 @@
    [promisefx.fx.error.protocols :as err.p]
    [promisefx.data.extractable.protocols :as extractable.p]
    [promisefx.data.success-failure :as s.f]
+   [promisefx.data.tagged.protocols :as tag.p]
    [promisefx.control.identity :as ctrl.id]
    [promisefx.control.tagged :as ctrl.tag]))
 
@@ -61,10 +62,24 @@
 
 (def untagged-ctx
   (->ExceptionTCtx
-   [::ExceptionT ::Identity]
+   [::ExceptionT ::ctrl.id/Identity]
    ctrl.id/ctx))
+
+(def default-tag [::ExceptionT ::ctrl.tag/Tagged])
 
 (def ctx
   (->ExceptionTCtx
-   [::ExceptionT ::Tagged]
-   (ctrl.tag/->TaggedCtx [::ExceptionT ::Tagged] nil)))
+   default-tag
+   (ctrl.tag/->TaggedCtx default-tag nil)))
+
+;; we make this context's tag the default tag for
+;; any values - so the error effect can be used with
+;; arbitrary plain values
+(extend-protocol tag.p/Tagged
+  Object
+  (-get-tag [_] default-tag))
+
+(def boxed-tagged-ctx
+  (->ExceptionTCtx
+   [::ExceptionT ::ctrl.tag/BoxedTagged]
+   (ctrl.tag/->BoxedTaggedCtx [::ExceptionT ::ctrl.tag/BoxedTagged] nil)))

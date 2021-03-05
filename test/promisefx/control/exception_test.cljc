@@ -55,26 +55,32 @@
     (let [x (ex-info "boo" {})]
 
       (m.t/run-monad-law-tests
-       sut/untagged-ctx
+       ctx
        run-compare-vals
 
-       {:left-identity
+       {
+        :left-identity
         ;; [a mf expected-mv]
-        [[10 (fn [v] (m/return (inc v))) 11]
+        [[10
+          (fn [v] (m/return (inc v)))
+          (m/return 11)]
 
-         [10 (fn [v] (error/reject (inc v))) (s.f/failure ctx 11)]]
+         [10
+          (fn [v] (error/reject (inc v)))
+          (error/reject 11)]]
 
         :right-identity
         ;; [mv expected-mv]
-        [[:foo :foo]]
+        [[(m/return :foo) (m/return :foo)]]
 
         :associativity
         ;; [mv f g expected-mv]
-        [["foo"
+        [[(m/return "foo")
           #(m/return (str % "bar"))
           #(m/return (str % "baz"))
-          "foobarbaz"]]}))))
+          (m/return "foobarbaz")]]}))))
 
 (deftest monad-law-tests
   (context-monad-law-tests sut/untagged-ctx)
-  (context-monad-law-tests sut/ctx))
+  (context-monad-law-tests sut/ctx)
+  (context-monad-law-tests sut/boxed-tagged-ctx))
