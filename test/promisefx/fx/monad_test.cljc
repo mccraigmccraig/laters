@@ -28,9 +28,12 @@
     ctx
     a
     mf]
+   (let [bind (partial bind ctx)
+         return (partial return ctx)]
 
-   [(bind ctx (return ctx a) mf)
-    (mf a)]))
+     [(bind (return a) mf)
+
+      (mf a)])))
 
 ;; m >>= return ≡ m
 ;; (bind m return) ≡ m
@@ -43,9 +46,12 @@
           return m/return'}}
     ctx
     mv]
+   (let [bind (partial bind ctx)
+         return (partial return ctx)]
 
-   [(bind ctx mv #(return ctx %))
-    mv]))
+     [(bind mv return)
+
+      mv])))
 
 ;; (m >>= f) >>= g ≡ m >>= (\x -> f x >>= g)
 ;; (bind (bind m f) g) ≡ (bind m (fn [x] (bind (f x) g)))
@@ -60,17 +66,16 @@
     m
     f
     g]
-   [(bind ctx
-     (bind ctx m f)
-     g)
-    (bind
-     ctx
-     m
-     (fn [x]
-       (bind
-        ctx
-        (f x)
-        g)))]))
+   (let [bind (partial bind ctx)]
+
+     [(bind (bind m f) g)
+
+      (bind
+       m
+       (fn [x]
+         (bind
+          (f x)
+          g)))])))
 
 (defn run-left-identity-test
   ([ctx run-compare-fn a mf expected-val]
