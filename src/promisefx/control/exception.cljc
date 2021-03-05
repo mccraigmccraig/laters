@@ -21,7 +21,7 @@
 
 (deftype ExceptionTCtx [tag inner-ctx]
   ctx.p/Context
-  (-get-tag [m] tag)
+  (-get-tag [outer-ctx] tag)
 
   m.p/Monad
   (-bind [outer-ctx inner-mv inner-mf]
