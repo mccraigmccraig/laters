@@ -97,6 +97,7 @@
             #(m/return (str % "baz"))
             {:promisefx.writer/output nil
              :promisefx/val "foobarbaz"}]
+
            [(error/reject x)
             #(m/return (str % "bar"))
             #(m/return (str % "baz"))

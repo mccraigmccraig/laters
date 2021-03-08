@@ -48,33 +48,22 @@
 (defn unwrap-failure-channel
   "we use an ex-data to propagate effects in case of failure. we do
    this because j.u.c.CompletableFutures only supports Exceptions as
-   failure cases"
+   failure cases
+
+   unwrap a failure-channel ex-data, returning the failure-channel
+   with an extra :promisefx/err key with the original exception"
   [e]
   ;; (prn "unwrap-failure-channel" (unwrap-exception e))
-  (some-> e
-          data.ex/unwrap-exception
-          ex-data
-          :promisefx.rwpromise/failure-channel
-          ;; a failure-channel should never include a value. remove
-          ;; it to prevent any confusion (e.g. left + right both some?)
-          (dissoc :promisefx/val)))
-
-(defn unwrap-cause
-  "get at the original exception
-
-  if the provided exception has failure-channel data, then it wraps the
-  original exception
-
-  if the provided exception has no failure-channel data, then it is the
-  original exception"
-  [e]
   (let [e (data.ex/unwrap-exception e)
-        has-failure-channel? (some? (some-> e
-                                            ex-data
-                                            :promisefx.rwpromise/failure-channel))]
-    (if has-failure-channel?
-      (ex-cause e)
-      e)))
+        failure-channel (some-> e
+                                ex-data
+                                :promisefx.rwpromise/failure-channel)]
+    (if (some? failure-channel)
+      (merge
+       failure-channel
+       {:promisefx/err (ex-cause e)})
+
+      {:promisefx/err (ex-cause e)})))
 
 (defn failure-rws-promise-result
   "take an exception and some failure-channel data, and return
@@ -145,14 +134,15 @@
 
              (let [left? (some? left)
                    {w :promisefx.writer/output
-                    v :promisefx/val} (if left?
-                                        (unwrap-failure-channel left)
-                                        right)
+                    v :promisefx/val
+                    err :promisefx/err} (if left?
+                                          (unwrap-failure-channel left)
+                                          right)
                    ;; _ (prn "handle1-unwrapped" [w v])
 
                    inner-mv' (try
                                (inner-2-mf
-                                (when left? (some-> left unwrap-cause))
+                                (when left? err)
                                 (when-not left? v))
                                (catch #?(:clj Exception :cljs :default) e
                                  ;; (prn "catching 2" e)
@@ -177,9 +167,10 @@
 
                      (let [left'? (some? left')
                            {w' :promisefx.writer/output
-                            v' :promisefx/val} (if left'?
-                                                 (unwrap-failure-channel left')
-                                                 right')
+                            v' :promisefx/val
+                            err' :promisefx/err} (if left'?
+                                                   (unwrap-failure-channel left')
+                                                   right')
 
                            w'' (monoid/mappend output-ctx w w')]
                        ;; _ (prn "handle2-unwrapped" [w' v' w''])
@@ -188,7 +179,7 @@
 
                        (if left'?
                          (failure-rws-promise-result
-                          left'
+                          err'
                           {:promisefx.writer/output w''})
 
                          {:promisefx.writer/output w''
@@ -304,6 +295,12 @@
    [::RWPromiseT ::monoid.map ::ctrl.tagged/TaggedCtx]
    monoid/map-monoid-ctx
    (ctrl.tagged/->TaggedCtx [::RWPromiseT ::monoid.map ::ctrl.tagged/TaggedCtx] nil)))
+
+(def boxed-tagged-ctx
+  (->RWSPromiseTCtx
+   [::RWPromiseT ::monoid.map ::ctrl.tagged/BoxedTagged]
+   monoid/map-monoid-ctx
+   (ctrl.tagged/->TaggedCtx [::RWPromiseT ::monoid.map ::ctrl.tagged/BoxedTagged] nil)))
 
 
 (comment

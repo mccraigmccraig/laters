@@ -103,9 +103,7 @@
   `(try
      ~@body
      (catch Exception e#
-       ;; we corall an error into being a marker value
-       ;; for simple test flow - errors are now just values
-       {:promisefx/val (failure e#)})))
+       (sut/unwrap-failure-channel e#))))
 
 (defn run-deref
   [mv arg]
@@ -115,8 +113,7 @@
 
 (defn run-compare-vals
   [[mva mvb] expected-val]
-  (let [[{a-val :promisefx/val}
-         {b-val :promisefx/val}] (map #(run-deref % {:promisefx.reader/env :foo}) [mva mvb])]
+  (let [[a-val b-val] (map #(run-deref % {:promisefx.reader/env :foo}) [mva mvb])]
     (is (= expected-val a-val))
     (is (= a-val b-val))))
 
@@ -133,54 +130,83 @@
 
          {:left-identity
           ;; [a mf expected-mv]
-          [[10 (fn [v] (m/return (inc v))) 11]
-           [10 (fn [_v] (error/reject x)) (failure x) ]]
+          [
+           [10 (fn [v] (m/return (inc v)))
+            {:promisefx.writer/output nil
+             :promisefx/val  11}]
+           [10 (fn [_v] (error/reject x))
+            {:promisefx.writer/output nil
+             :promisefx/err x}]
+           ]
 
           :right-identity
-          ;; [mv expected-mv]
-          [[(m/return :foo) :foo]
-           [(error/reject x) (failure x)]]
+          ;; ;; [mv expected-mv]
+          [
+           [(m/return :foo)
+            {:promisefx.writer/output nil
+             :promisefx/val :foo}]
+           [(error/reject x)
+            {:promisefx.writer/output nil
+             :promisefx/err x}]
+           ]
 
           :associativity
           ;; [mv f g expected-mv]
-          [[(m/return "foo")
+          [
+           [(m/return "foo")
             #(m/return (str % "bar"))
             #(m/return (str % "baz"))
-            "foobarbaz" ]
+            {:promisefx.writer/output nil
+             :promisefx/val "foobarbaz"} ]
            [(error/reject x)
             #(m/return (str % "bar"))
             #(m/return (str % "baz"))
-            (failure x)]]}))
+            {:promisefx.writer/output nil
+             :promisefx/err x}]
+           ]
+          })
+        )
 
       (testing (str "catch/reject " (pr-str (ctx/get-tag ctx)))
 
-        (err.t/run-monad-law-tests
-         sut/ctx
-         run-compare-vals
+        ;; (err.t/run-monad-law-tests
+        ;;  sut/ctx
+        ;;  run-compare-vals
 
-         {:left-identity
-          ;; [a mf expected-mv]
-          [[x #(error/reject %) (failure x)]
-           [x #(m/return %) x]]
+        ;;  {:left-identity
+        ;;   ;; [a mf expected-mv]
+        ;;   [
+        ;;    [x #(error/reject %) (failure x)]
+        ;;    [x #(m/return %) x]
+        ;;    ]
 
-          :right-identity
-          ;; [mv expected-mv]
-          [[(error/reject x) (failure x)]
-           [(m/return :foo) :foo]]
+        ;;   :right-identity
+        ;;   ;; [mv expected-mv]
+        ;;   [
+        ;;    [(error/reject x) (failure x)]
+        ;;    [(m/return :foo) :foo]
+        ;;    ]
 
-          :associativity
-          ;; [mv f g expected-mv]
-          [[(error/reject x)
-            #(error/reject %)
-            #(error/reject %)
-            (failure x)]
-           [(error/reject sut/ctx x)
-            #(m/return %)
-            #(m/return %)
-            x]]})))))
+        ;;   :associativity
+        ;;   ;; [mv f g expected-mv]
+        ;;   [
+        ;;    [(error/reject x)
+        ;;     #(error/reject %)
+        ;;     #(error/reject %)
+        ;;     (failure x)]
+        ;;    [(error/reject sut/ctx x)
+        ;;     #(m/return %)
+        ;;     #(m/return %)
+        ;;     x]
+        ;;    ]})
+
+        ))))
 
 (deftest monad-law-tests
 
   (context-monad-law-tests sut/ctx)
 
-  (context-monad-law-tests sut/tagged-ctx))
+  (context-monad-law-tests sut/tagged-ctx)
+
+  (context-monad-law-tests sut/boxed-tagged-ctx)
+  )
