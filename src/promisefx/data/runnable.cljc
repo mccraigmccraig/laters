@@ -10,3 +10,7 @@
   ([^IRunnable mv] (run mv nil))
   ([^IRunnable mv arg]
    (runnable.p/-run mv arg)))
+
+(defn runnable?
+  [v]
+  (satisfies? runnable.p/IRunnable v))

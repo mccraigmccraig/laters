@@ -12,7 +12,7 @@
 
 (defmacro bind
   ([mv f]
-   `(p/-bind (or ~'this-context## (ctx.p/-get-context ~mv)) ~mv ~f))
+   `(p/-bind ~'this-context## ~mv ~f))
   ([m mv f]
    `(p/-bind ~m ~mv ~f)))
 

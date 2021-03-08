@@ -11,7 +11,8 @@
    [promisefx.data.extractable.protocols :as extractable.p]
    [promisefx.data.runnable.protocols :as runnable.p]
    [promisefx.data.monoid :as monoid]
-   [promisefx.data.success-failure :as s.f]))
+   [promisefx.data.success-failure :as s.f]
+   [promisefx.data.tagged.protocols :as tagged.p]))
 
 ;; values are: <env> -> <writer,success|failure>
 (defrecord RWSXVal [ctx f]
@@ -21,7 +22,10 @@
   (-extract [_] f)
   runnable.p/IRunnable
   (-run [_ arg]
-    (f arg)))
+    (f arg))
+  tagged.p/Tagged
+  (-get-tag [_]
+    (ctx.p/-get-tag ctx)))
 
 (defn rwsx-val
   [ctx f]
@@ -244,6 +248,12 @@
    [::RWExceptionT ::monoid/map ::ctrl.tag/TaggedCtx]
    monoid/map-monoid-ctx
    (ctrl.tag/->TaggedCtx [::RWExceptionT ::monoid/map ::ctrl.tag/TaggedCtx] nil)))
+
+(def boxed-tagged-ctx
+  (->RWExceptionTCtx
+   [::RWExceptionT ::monoid/map ::ctrl.tag/BoxedTagged]
+   monoid/map-monoid-ctx
+   (ctrl.tag/->BoxedTaggedCtx [::RWExceptionT ::monoid/map ::ctrl.tag/BoxedTagged] nil)))
 
 (comment
   (require '[promisefx.context :as ctx])

@@ -54,8 +54,7 @@
 
 (defn run-compare-vals
   [[mva mvb] expected-val]
-  (let [[{a-val :promisefx/val}
-         {b-val :promisefx/val}] (map #(r/run % {:promisefx.reader/env :foo}) [mva mvb])]
+  (let [[a-val b-val] (map #(r/run % {:promisefx.reader/env :foo}) [mva mvb])]
     (is (= expected-val a-val))
     (is (= a-val b-val))))
 
@@ -66,135 +65,160 @@
 
       (testing (str "bind/return " (pr-str (ctx/get-tag ctx)))
         (m.t/run-monad-law-tests
-         sut/ctx
+         ctx
          run-compare-vals
 
          {:left-identity
           ;; [a mf expected-mv]
           [[10
             (fn [v] (m/return (inc v)))
-            11]
+            {:promisefx.writer/output nil
+             :promisefx/val 11}]
+
            [10
             (fn [_v] (error/reject x))
-            (s.f/failure sut/ctx x)]]
+            {:promisefx.writer/output nil
+             :promisefx/val (s.f/failure ctx x)}]]
 
           :right-identity
           ;; [mv expected-mv]
-          [[(m/return :foo) :foo]
-           [(error/reject x) (s.f/failure sut/ctx x)]]
+          [[(m/return :foo)
+            {:promisefx.writer/output nil
+             :promisefx/val :foo}]
+
+           [(error/reject x)
+            {:promisefx.writer/output nil
+             :promisefx/val (s.f/failure ctx x)}]]
 
           :associativity
           ;; [mv f g expected-mv]
           [[(m/return "foo")
             #(m/return (str % "bar"))
             #(m/return (str % "baz"))
-            "foobarbaz"]
+            {:promisefx.writer/output nil
+             :promisefx/val "foobarbaz"}]
            [(error/reject x)
             #(m/return (str % "bar"))
             #(m/return (str % "baz"))
-            (s.f/failure sut/ctx x)]]}))
+            {:promisefx.writer/output nil
+             :promisefx/val (s.f/failure ctx x)}]]}))
 
       (testing (str "catch/reject " (pr-str (ctx/get-tag ctx)))
 
         (err.t/run-monad-law-tests
-         sut/ctx
+         ctx
          run-compare-vals
 
          {:left-identity
           ;; [a mf expected-mv]
-          [[x #(error/reject %) (s.f/failure sut/ctx x)]
-           [x #(m/return %) x]]
+          [[x #(error/reject %)
+            {:promisefx.writer/output nil
+             :promisefx/val (s.f/failure ctx x)}]
+
+           [x #(m/return %)
+            {:promisefx.writer/output nil
+             :promisefx/val x}]]
 
           :right-identity
           ;; [mv expected-mv]
-          [[(error/reject x) (s.f/failure sut/ctx x)]
-           [(m/return :foo) :foo]]
+          [[(error/reject x)
+            {:promisefx.writer/output nil
+             :promisefx/val (s.f/failure ctx x)}]
+
+           [(m/return :foo)
+            {:promisefx.writer/output nil
+             :promisefx/val :foo}]]
 
           :associativity
           ;; [mv f g expected-mv]
           [[(error/reject x)
             #(error/reject %)
             #(error/reject %)
-            (s.f/failure sut/ctx x)]
+            {:promisefx.writer/output nil
+             :promisefx/val (s.f/failure ctx x)}]
+
            [(error/reject x)
             #(m/return %)
             #(m/return %)
-            x]]})))))
+            {:promisefx.writer/output nil
+             :promisefx/val x}]]})))))
 
 
 (deftest monad-law-test
   (context-monad-law-tests sut/ctx)
+  (context-monad-law-tests sut/tagged-ctx)
+  (context-monad-law-tests sut/boxed-tagged-ctx)
 
 
-  (testing "finally"
-    (testing "left-identity"
-      (let [x (ex-info "boo" {:foo :bar})]
+  ;; (testing "finally"
+  ;;   (testing "left-identity"
+  ;;     (let [x (ex-info "boo" {:foo :bar})]
 
-        ;; this is interesting ... seem to have
-        ;; to match the return fn to either
-        ;; m/return or error/reject depending
-        ;; on whether we are following the plain
-        ;; or error path... need to think about this
-
-
-        (m.t/run-left-identity-test
-         {:bind error/finally'
-          :return error/reject'}
-         sut/ctx
-         run-compare-vals
-         x
-         #(error/reject' sut/ctx %)
-         (s.f/failure sut/ctx x))
+  ;;       ;; this is interesting ... seem to have
+  ;;       ;; to match the return fn to either
+  ;;       ;; m/return or error/reject depending
+  ;;       ;; on whether we are following the plain
+  ;;       ;; or error path... need to think about this
 
 
-        (m.t/run-left-identity-test
-         {:bind error/finally'
-          :return m/return'}
-         sut/ctx
-         run-compare-vals
-         x
-         #(m/return' sut/ctx %)
-         x)))
+  ;;       (m.t/run-left-identity-test
+  ;;        {:bind error/finally'
+  ;;         :return error/reject'}
+  ;;        sut/ctx
+  ;;        run-compare-vals
+  ;;        x
+  ;;        #(error/reject' sut/ctx %)
+  ;;        (s.f/failure sut/ctx x))
 
-    (testing "right-identity"
-      (let [x (ex-info "boo" {})]
-        (m.t/run-right-identity-test
-         {:bind error/finally'
-          :return error/reject'}
-         sut/ctx
-         run-compare-vals
-         (sut/failure-rwsx-val sut/ctx x)
-         (s.f/failure sut/ctx x))
-        (m.t/run-right-identity-test
-         {:bind error/finally'
-          :return m/return'}
-         sut/ctx
-         run-compare-vals
-         (sut/success-rwsx-val sut/ctx :foo)
-         :foo)))
 
-    (testing "associativity"
-      (let [x (ex-info "boo" {})]
-        (m.t/run-associativity-test
-         {:bind error/finally'
-          :return error/reject'}
-         sut/ctx
-         run-compare-vals
-         (sut/failure-rwsx-val sut/ctx x)
-         (partial error/reject' sut/ctx)
-         (partial error/reject' sut/ctx)
-         (s.f/failure sut/ctx x)))
-      (let [x (ex-info "boo" {:foo 100})]
-        (m.t/run-associativity-test
-         {:bind error/finally'
-          :return m/return'}
-         sut/ctx
-         run-compare-vals
-         (sut/failure-rwsx-val sut/ctx x)
-         (partial m/return' sut/ctx)
-         (partial m/return' sut/ctx)
-         (s.f/failure sut/ctx x))))
-    )
+  ;;       (m.t/run-left-identity-test
+  ;;        {:bind error/finally'
+  ;;         :return m/return'}
+  ;;        sut/ctx
+  ;;        run-compare-vals
+  ;;        x
+  ;;        #(m/return' sut/ctx %)
+  ;;        x)))
+
+  ;;   (testing "right-identity"
+  ;;     (let [x (ex-info "boo" {})]
+  ;;       (m.t/run-right-identity-test
+  ;;        {:bind error/finally'
+  ;;         :return error/reject'}
+  ;;        sut/ctx
+  ;;        run-compare-vals
+  ;;        (sut/failure-rwsx-val sut/ctx x)
+  ;;        (s.f/failure sut/ctx x))
+  ;;       (m.t/run-right-identity-test
+  ;;        {:bind error/finally'
+  ;;         :return m/return'}
+  ;;        sut/ctx
+  ;;        run-compare-vals
+  ;;        (sut/success-rwsx-val sut/ctx :foo)
+  ;;        :foo)))
+
+  ;;   (testing "associativity"
+  ;;     (let [x (ex-info "boo" {})]
+  ;;       (m.t/run-associativity-test
+  ;;        {:bind error/finally'
+  ;;         :return error/reject'}
+  ;;        sut/ctx
+  ;;        run-compare-vals
+  ;;        (sut/failure-rwsx-val sut/ctx x)
+  ;;        (partial error/reject' sut/ctx)
+  ;;        (partial error/reject' sut/ctx)
+  ;;        (s.f/failure sut/ctx x)))
+  ;;     (let [x (ex-info "boo" {:foo 100})]
+  ;;       (m.t/run-associativity-test
+  ;;        {:bind error/finally'
+  ;;         :return m/return'}
+  ;;        sut/ctx
+  ;;        run-compare-vals
+  ;;        (sut/failure-rwsx-val sut/ctx x)
+  ;;        (partial m/return' sut/ctx)
+  ;;        (partial m/return' sut/ctx)
+  ;;        (s.f/failure sut/ctx x))))
+  ;;   )
 
 
 
