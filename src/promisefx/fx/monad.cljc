@@ -57,7 +57,7 @@
      [& args]
      (let [[arg1 arg2 & rest] args]
        (cond
-         (vector? arg1) (apply mlet* nil arg1 arg2 rest)
+         (vector? arg1) (apply mlet* 'this-context## arg1 arg2 rest)
          (vector? arg2) (apply mlet* arg1 arg2 rest)
          :else (throw (IllegalArgumentException. "1st or second arg must be binding vector"))))))
 
