@@ -69,34 +69,36 @@
   )
 
 
-;; put promise failures into a marker for comparisons
-(deftype RWSPromiseTestFailure [e]
-  Object
+;; can probably get rid of this marker... the simple map works better
 
-  ;; for the purposes of these tests we define equals between
-  ;; Failures as being identical? of causes of exceptions
-  (equals [a b]
-    ;; (prn "equals" a b)
-    (and
-     (some? (ex-data e))
-     (instance? RWSPromiseTestFailure b)
-     (and
-      (identical? (sut/unwrap-cause e)
-                  (sut/unwrap-cause (.-e b)))
-      ;; should we be testing ex-data equality too ?
-      ;; (= (ex-data e) (ex-data (.-e b)))
-      ))))
+;; ;; put promise failures into a marker for comparisons
+;; (deftype RWSPromiseTestFailure [e]
+;;   Object
 
-(defmethod clojure.core/print-method RWSPromiseTestFailure [f #?(:clj ^Writer w :cljs w)]
-  (let [e (.-e f)]
-    (.write w "<< RWSPromiseTestFailure: ")
-    (.write w (prn-str e))
-    (.write w " >>")))
+;;   ;; for the purposes of these tests we define equals between
+;;   ;; Failures as being identical? of causes of exceptions
+;;   (equals [a b]
+;;     ;; (prn "equals" a b)
+;;     (and
+;;      (some? (ex-data e))
+;;      (instance? RWSPromiseTestFailure b)
+;;      (and
+;;       (identical? (sut/unwrap-cause e)
+;;                   (sut/unwrap-cause (.-e b)))
+;;       ;; should we be testing ex-data equality too ?
+;;       ;; (= (ex-data e) (ex-data (.-e b)))
+;;       ))))
 
-(defn failure
-  [e]
-  (->RWSPromiseTestFailure
-   (data.ex/unwrap-exception e)))
+;; (defmethod clojure.core/print-method RWSPromiseTestFailure [f #?(:clj ^Writer w :cljs w)]
+;;   (let [e (.-e f)]
+;;     (.write w "<< RWSPromiseTestFailure: ")
+;;     (.write w (prn-str e))
+;;     (.write w " >>")))
+
+;; (defn failure
+;;   [e]
+;;   (->RWSPromiseTestFailure
+;;    (data.ex/unwrap-exception e)))
 
 (defmacro catch-failure
   [& body]
@@ -122,83 +124,97 @@
   (ctx/with-context ctx
     (let [x (ex-info "boo" {})]
 
-      (testing (str "bind/return " (pr-str (ctx/get-tag ctx)))
+      ;; (testing (str "bind/return " (pr-str (ctx/get-tag ctx)))
 
-        (m.t/run-monad-law-tests
+      ;;   (m.t/run-monad-law-tests
+      ;;    sut/ctx
+      ;;    run-compare-vals
+
+      ;;    {:left-identity
+      ;;     ;; [a mf expected-mv]
+      ;;     [
+      ;;      [10 (fn [v] (m/return (inc v)))
+      ;;       {:promisefx.writer/output nil
+      ;;        :promisefx/val  11}]
+      ;;      [10 (fn [_v] (error/reject x))
+      ;;       {:promisefx.writer/output nil
+      ;;        :promisefx/err x}]
+      ;;      ]
+
+      ;;     :right-identity
+      ;;     ;; ;; [mv expected-mv]
+      ;;     [
+      ;;      [(m/return :foo)
+      ;;       {:promisefx.writer/output nil
+      ;;        :promisefx/val :foo}]
+      ;;      [(error/reject x)
+      ;;       {:promisefx.writer/output nil
+      ;;        :promisefx/err x}]
+      ;;      ]
+
+      ;;     :associativity
+      ;;     ;; [mv f g expected-mv]
+      ;;     [
+      ;;      [(m/return "foo")
+      ;;       #(m/return (str % "bar"))
+      ;;       #(m/return (str % "baz"))
+      ;;       {:promisefx.writer/output nil
+      ;;        :promisefx/val "foobarbaz"} ]
+      ;;      [(error/reject x)
+      ;;       #(m/return (str % "bar"))
+      ;;       #(m/return (str % "baz"))
+      ;;       {:promisefx.writer/output nil
+      ;;        :promisefx/err x}]
+      ;;      ]
+      ;;     })
+      ;;   )
+
+      (testing (str "catch/reject " (pr-str (ctx/get-tag ctx)))
+
+        (err.t/run-monad-law-tests
          sut/ctx
          run-compare-vals
 
          {:left-identity
           ;; [a mf expected-mv]
           [
-           [10 (fn [v] (m/return (inc v)))
-            {:promisefx.writer/output nil
-             :promisefx/val  11}]
-           [10 (fn [_v] (error/reject x))
+           [x #(error/reject %)
             {:promisefx.writer/output nil
              :promisefx/err x}]
+            [x #(m/return %)
+             {:promisefx.writer/output nil
+              :promisefx/val x}]
            ]
 
           :right-identity
-          ;; ;; [mv expected-mv]
+          ;; [mv expected-mv]
           [
-           [(m/return :foo)
-            {:promisefx.writer/output nil
-             :promisefx/val :foo}]
            [(error/reject x)
             {:promisefx.writer/output nil
              :promisefx/err x}]
+
+           [(m/return :foo)
+            {:promisefx.writer/output nil
+             :promisefx/val :foo}]
            ]
 
           :associativity
           ;; [mv f g expected-mv]
           [
-           [(m/return "foo")
-            #(m/return (str % "bar"))
-            #(m/return (str % "baz"))
-            {:promisefx.writer/output nil
-             :promisefx/val "foobarbaz"} ]
            [(error/reject x)
-            #(m/return (str % "bar"))
-            #(m/return (str % "baz"))
+            #(error/reject %)
+            #(error/reject %)
             {:promisefx.writer/output nil
              :promisefx/err x}]
+
+           [(error/reject sut/ctx x)
+            #(m/return %)
+            #(m/return %)
+            {:promisefx.writer/output nil
+             :promisefx/val x}]
            ]
+
           })
-        )
-
-      (testing (str "catch/reject " (pr-str (ctx/get-tag ctx)))
-
-        ;; (err.t/run-monad-law-tests
-        ;;  sut/ctx
-        ;;  run-compare-vals
-
-        ;;  {:left-identity
-        ;;   ;; [a mf expected-mv]
-        ;;   [
-        ;;    [x #(error/reject %) (failure x)]
-        ;;    [x #(m/return %) x]
-        ;;    ]
-
-        ;;   :right-identity
-        ;;   ;; [mv expected-mv]
-        ;;   [
-        ;;    [(error/reject x) (failure x)]
-        ;;    [(m/return :foo) :foo]
-        ;;    ]
-
-        ;;   :associativity
-        ;;   ;; [mv f g expected-mv]
-        ;;   [
-        ;;    [(error/reject x)
-        ;;     #(error/reject %)
-        ;;     #(error/reject %)
-        ;;     (failure x)]
-        ;;    [(error/reject sut/ctx x)
-        ;;     #(m/return %)
-        ;;     #(m/return %)
-        ;;     x]
-        ;;    ]})
 
         ))))
 
