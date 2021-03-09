@@ -11,7 +11,8 @@
    [promisefx.fx.error-test :as err.t]
    [promisefx.fx.monad :as m]
    [promisefx.fx.monad-test :as m.t]
-   [promisefx.fx.writer :as w]
+   [promisefx.fx.reader :as reader]
+   [promisefx.fx.writer :as writer]
    ))
 
 (deftest RWSX-test
@@ -55,8 +56,8 @@
                  (r/run)))))))
 
 (defn run-compare-vals
-  [[mva mvb] expected-val]
-  (let [[a-val b-val] (map #(r/run % {:promisefx.reader/env :foo}) [mva mvb])]
+  [run-arg [mva mvb] expected-val]
+  (let [[a-val b-val] (map #(r/run % run-arg) [mva mvb])]
     (is (= expected-val a-val))
     (is (= a-val b-val))))
 
@@ -68,7 +69,7 @@
       (testing (str "bind/return " (pr-str (ctx/get-tag ctx)))
         (m.t/run-monad-law-tests
          ctx
-         run-compare-vals
+         (partial run-compare-vals {:promisefx.reader/env {:foo 100}})
 
          {:left-identity
           ;; [a mf expected-mv]
@@ -83,7 +84,25 @@
              :promisefx/val (s.f/failure ctx x)}]
 
            [10
-            (fn [v] (w/tell [::foo v]))
+            (fn [_v] (reader/ask))
+            {:promisefx.writer/output nil
+             :promisefx/val {:foo 100}}]
+
+           [10
+            (fn [_v] (reader/asks :foo))
+            {:promisefx.writer/output nil
+             :promisefx/val 100}]
+
+           [10
+            (fn [_v] (reader/local
+                     (constantly {:foo 200})
+                     (m/mlet [a (reader/asks :foo)]
+                       (m/return (inc a)))))
+            {:promisefx.writer/output nil
+             :promisefx/val 201}]
+
+           [10
+            (fn [v] (writer/tell [::foo v]))
             {:promisefx.writer/output {::foo [10]}
              :promisefx/val nil}]]
 
@@ -115,7 +134,7 @@
 
         (err.t/run-monad-law-tests
          ctx
-         run-compare-vals
+         (partial run-compare-vals {:promisefx.reader/env :foo})
 
          {:left-identity
           ;; [a mf expected-mv]

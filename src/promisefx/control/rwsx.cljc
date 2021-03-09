@@ -200,6 +200,14 @@
       (fn [{env :promisefx.reader/env}]
         {:promisefx.writer/output nil
          :promisefx/val env}))))
+  (-asks [m f]
+    (m.p/-return
+     inner-ctx
+     (rwsx-val
+      m
+      (fn [{env :promisefx.reader/env}]
+        {:promisefx.writer/output nil
+         :promisefx/val (f env)}))))
   (-local [m f mv]
     (m.p/-return
      inner-ctx
