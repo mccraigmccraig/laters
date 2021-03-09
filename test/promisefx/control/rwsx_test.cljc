@@ -5,12 +5,14 @@
    [clojure.test :as t ]
    #?(:clj [clojure.test :as t :refer [deftest testing is]]
       :cljs [cljs.test :as t :refer-macros [deftest testing is]])
-   [promisefx.fx.monad :as m]
    [promisefx.data.runnable :as r]
    [promisefx.data.success-failure :as s.f]
    [promisefx.fx.error :as error]
+   [promisefx.fx.error-test :as err.t]
+   [promisefx.fx.monad :as m]
    [promisefx.fx.monad-test :as m.t]
-   [promisefx.fx.error-test :as err.t]))
+   [promisefx.fx.writer :as w]
+   ))
 
 (deftest RWSX-test
   (testing "return"
@@ -78,7 +80,12 @@
            [10
             (fn [_v] (error/reject x))
             {:promisefx.writer/output nil
-             :promisefx/val (s.f/failure ctx x)}]]
+             :promisefx/val (s.f/failure ctx x)}]
+
+           [10
+            (fn [v] (w/tell [::foo v]))
+            {:promisefx.writer/output {::foo [10]}
+             :promisefx/val nil}]]
 
           :right-identity
           ;; [mv expected-mv]
@@ -118,7 +125,9 @@
 
            [x #(m/return %)
             {:promisefx.writer/output nil
-             :promisefx/val x}]]
+             :promisefx/val x}]
+
+           ]
 
           :right-identity
           ;; [mv expected-mv]
