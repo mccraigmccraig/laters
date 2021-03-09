@@ -34,4 +34,4 @@ jobs:
             m2-
 
       - name: Test
-        run: clj -A:test -A:runner
+        run: clojure -A:test -A:runner
