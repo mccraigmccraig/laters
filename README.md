@@ -1,7 +1,7 @@
 # promisefx
 
 [![cljdoc badge](https://cljdoc.org/badge/mccraigmccraig/promisefx)](https://cljdoc.org/d/mccraigmccraig/promisefx/CURRENT)
-![mccraigmccraig/promisefx](https://github.com/mccraigmccraig/promisefx/.github/workflows/test.yml/badge.svg)
+![test-badge](https://github.com/mccraigmccraig/promisefx/actions/workflows/test.yml/badge.svg)
 
 an exploration of some other ideas for effectful programming with
 clojure/script
