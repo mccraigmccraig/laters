@@ -215,7 +215,8 @@
      (rwsx-val
       m
       (fn [{env :promisefx.reader/env}]
-        {:promisefx.writer/output (monoid/mappend output-ctx nil v)}))))
+        {:promisefx.writer/output (monoid/mappend output-ctx nil v)
+         :promisefx/val nil}))))
   (-listen [m mv]
     (m.p/-return
      inner-ctx
