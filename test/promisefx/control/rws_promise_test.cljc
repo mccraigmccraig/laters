@@ -124,50 +124,50 @@
   (ctx/with-context ctx
     (let [x (ex-info "boo" {})]
 
-      ;; (testing (str "bind/return " (pr-str (ctx/get-tag ctx)))
+      (testing (str "bind/return " (pr-str (ctx/get-tag ctx)))
 
-      ;;   (m.t/run-monad-law-tests
-      ;;    sut/ctx
-      ;;    run-compare-vals
+        (m.t/run-monad-law-tests
+         sut/ctx
+         run-compare-vals
 
-      ;;    {:left-identity
-      ;;     ;; [a mf expected-mv]
-      ;;     [
-      ;;      [10 (fn [v] (m/return (inc v)))
-      ;;       {:promisefx.writer/output nil
-      ;;        :promisefx/val  11}]
-      ;;      [10 (fn [_v] (error/reject x))
-      ;;       {:promisefx.writer/output nil
-      ;;        :promisefx/err x}]
-      ;;      ]
+         {:left-identity
+          ;; [a mf expected-mv]
+          [
+           [10 (fn [v] (m/return (inc v)))
+            {:promisefx.writer/output nil
+             :promisefx/val  11}]
+           [10 (fn [_v] (error/reject x))
+            {:promisefx.writer/output nil
+             :promisefx/err x}]
+           ]
 
-      ;;     :right-identity
-      ;;     ;; ;; [mv expected-mv]
-      ;;     [
-      ;;      [(m/return :foo)
-      ;;       {:promisefx.writer/output nil
-      ;;        :promisefx/val :foo}]
-      ;;      [(error/reject x)
-      ;;       {:promisefx.writer/output nil
-      ;;        :promisefx/err x}]
-      ;;      ]
+          :right-identity
+          ;; ;; [mv expected-mv]
+          [
+           [(m/return :foo)
+            {:promisefx.writer/output nil
+             :promisefx/val :foo}]
+           [(error/reject x)
+            {:promisefx.writer/output nil
+             :promisefx/err x}]
+           ]
 
-      ;;     :associativity
-      ;;     ;; [mv f g expected-mv]
-      ;;     [
-      ;;      [(m/return "foo")
-      ;;       #(m/return (str % "bar"))
-      ;;       #(m/return (str % "baz"))
-      ;;       {:promisefx.writer/output nil
-      ;;        :promisefx/val "foobarbaz"} ]
-      ;;      [(error/reject x)
-      ;;       #(m/return (str % "bar"))
-      ;;       #(m/return (str % "baz"))
-      ;;       {:promisefx.writer/output nil
-      ;;        :promisefx/err x}]
-      ;;      ]
-      ;;     })
-      ;;   )
+          :associativity
+          ;; [mv f g expected-mv]
+          [
+           [(m/return "foo")
+            #(m/return (str % "bar"))
+            #(m/return (str % "baz"))
+            {:promisefx.writer/output nil
+             :promisefx/val "foobarbaz"} ]
+           [(error/reject x)
+            #(m/return (str % "bar"))
+            #(m/return (str % "baz"))
+            {:promisefx.writer/output nil
+             :promisefx/err x}]
+           ]
+          })
+        )
 
       (testing (str "catch/reject " (pr-str (ctx/get-tag ctx)))
 
